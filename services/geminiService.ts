@@ -176,14 +176,16 @@ export async function generateKitchenRender(
       - **ACTION**: Your job is only to "paint" the existing pixels. 
       - **ALIGNMENT**: The output image geometry must perfectly overlay the input sketch.
 
-      [PHASE 4: PHOTOREALISTIC STYLE TRANSFER]
-      - **TASK**: Treat the input lines as a "Wireframe".
-      - **ACTION**: Apply PBR (Physically Based Rendering) materials to the wireframe.
+      [PHASE 4: PHOTOREALISTIC STYLE TRANSFER - NO GEOMETRY CHANGES]
+      - **TASK**: Treat the input lines as an "Unpaintable Wireframe".
+      - **ACTION**: Apply PBR (Physically Based Rendering) materials to the wireframe surfaces ONLY.
+      - **CONSTRAINT**: Do not move a single line. Do not straighten a wall. Do not fix a crooked drawer.
       - **LIGHTING**: Add "Global Illumination". Light must bounce off the floor onto the cabinets.
-      - **DEPTH**: Add "Ambient Occlusion" in the corners.
+      - **DEPTH**: Add "Ambient Occlusion" in the corners to create depth without changing shape.
       - **SHADOWS**: The island must cast a soft shadow on the wood floor.
       - **REFLECTIONS**: The countertop must reflect the under-cabinet lighting.
       - **ANTI-FLATNESS**: Banish "flat colors". Every surface must have texture (grain, vein, noise).
+      - **PRESERVATION**: The final image must look exactly like the sketch, just with lights turned on and materials applied.
 
       [PHASE 5: GEOMETRY & FIDELITY - PIXEL PERFECT MATCH]
       - **PRIMARY DIRECTIVE**: The Input Sketch is the ABSOLUTE TRUTH for geometry.
@@ -191,6 +193,8 @@ export async function generateKitchenRender(
       - **ISLAND PANELS**: If the island back has 5 vertical sections in the sketch, the render MUST have 5 sections. Do not simplify to 3 or 4.
       - **CONFLICT RESOLUTION**: If text says "3 Drawers" but drawing shows 2, **RENDER 2**.
       - **CABINET CODES**: Use text only to determine *what* something is (e.g., "SB36" tells you it's a sink).
+      - **NO HALLUCINATION**: Do not invent baseboards, crown molding, or handles if they are not drawn.
+
 
 
       [PHASE 6: APPLIANCE & FIXTURE DETECTION]
