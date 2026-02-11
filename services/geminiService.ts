@@ -150,6 +150,7 @@ export async function generateKitchenRender(
       - **FORBIDDEN**: Do NOT add windows or doors that are not in the sketch.
       - **FORBIDDEN**: Do NOT change the cabinet door count.
       - **RULE**: If it's not in the lines, it doesn't exist. Keep the scene ARCHITECTURALLY CLEAN.
+      - **STRICT ENFORCEMENT**: Do not "decorate" the kitchen. Only "build" it.
 
       [PHASE 1: SINGLE MASTER VIEW SELECTION]
       - **INPUT**: You have received multiple images.
@@ -186,9 +187,11 @@ export async function generateKitchenRender(
 
       [PHASE 5: GEOMETRY & FIDELITY - PIXEL PERFECT MATCH]
       - **PRIMARY DIRECTIVE**: The Input Sketch is the ABSOLUTE TRUTH for geometry.
+      - **COUNTING RULE**: Count the number of cabinet doors, drawers, and panels in the sketch. The output MUST match this count exactly.
+      - **ISLAND PANELS**: If the island back has 5 vertical sections in the sketch, the render MUST have 5 sections. Do not simplify to 3 or 4.
       - **CONFLICT RESOLUTION**: If text says "3 Drawers" but drawing shows 2, **RENDER 2**.
-      - **ISLAND PANELS**: Look at the "Island Elevation". If it shows wainscoting lines, render them.
       - **CABINET CODES**: Use text only to determine *what* something is (e.g., "SB36" tells you it's a sink).
+
 
       [PHASE 6: APPLIANCE & FIXTURE DETECTION]
       - **SINK**: Locate "SB36". If on Island, render sink on Island. If on Wall, render on Wall.
