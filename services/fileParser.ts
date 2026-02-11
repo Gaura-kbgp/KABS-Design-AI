@@ -28,19 +28,53 @@ export const fileParser = {
 
   /**
    * Converts PDF pages to an array of images.
-   * This allows the user to select which specific view (page) they want to render.
+   * SMART MODE: Scans text first to identify relevant pages (Perspectives, Elevations).
    */
   async pdfToImages(file: File): Promise<string[]> {
     try {
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
       
-      const MAX_PAGES = Math.min(pdf.numPages, 5); // Limit to first 5 pages
       const images: string[] = [];
+      const MAX_OUTPUT_IMAGES = 12; // Limit payload to Gemini
+      const SCAN_LIMIT = Math.min(pdf.numPages, 30); // Scan first 30 pages for keywords
 
-      for (let i = 1; i <= MAX_PAGES; i++) {
+      const perspectivePages: number[] = [];
+      const elevationPages: number[] = [];
+      const otherPages: number[] = [];
+      
+      // Always include Page 1 (Cover) and Page 2 (Floor Plan/Notes)
+      // But classify them appropriately
+      const checkPage = async (i: number) => {
         const page = await pdf.getPage(i);
-        const viewport = page.getViewport({ scale: 2.0 }); // High quality
+        const textContent = await page.getTextContent();
+        const text = textContent.items.map((item: any) => item.str).join(' ').toLowerCase();
+
+        if (text.includes('perspective') || text.includes('3d')) {
+           perspectivePages.push(i);
+        } else if (text.includes('elevation') || text.includes('view')) {
+           elevationPages.push(i);
+        } else {
+           otherPages.push(i);
+        }
+      };
+
+      // Scan first 30 pages
+      for (let i = 1; i <= SCAN_LIMIT; i++) {
+         await checkPage(i);
+      }
+
+      // Priority Sort: Perspectives FIRST, then Elevations, then others (Plans/Notes)
+      // This ensures the AI sees the 3D Sketch immediately as the primary visual anchor.
+      const finalIndices = [...perspectivePages, ...elevationPages, ...otherPages]
+        .filter((value, index, self) => self.indexOf(value) === index) // Unique
+        .slice(0, MAX_OUTPUT_IMAGES);
+
+      console.log("Smart Parser Priority Order:", finalIndices);
+
+      for (const i of finalIndices) {
+        const page = await pdf.getPage(i);
+        const viewport = page.getViewport({ scale: 1.5 }); // Reduced scale slightly for performance
         
         const canvas = document.createElement('canvas');
         const context = canvas.getContext('2d');
@@ -58,7 +92,8 @@ export const fileParser = {
           viewport: viewport
         }).promise;
 
-        images.push(canvas.toDataURL('image/png'));
+        // Use JPEG 0.8 to reduce payload size significantly (vs PNG)
+        images.push(canvas.toDataURL('image/jpeg', 0.8));
       }
 
       return images;

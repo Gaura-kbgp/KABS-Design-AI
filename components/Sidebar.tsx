@@ -53,7 +53,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar">
-            {renderOptionGroup('Cabinet Finish', <Palette size={14} />, ['White', 'Oyster', 'Shoji', 'Pebble', 'Taupe', 'Arctic', 'Slate Blue', 'Naval', 'Saddle', 'Walnut', 'Oak', 'Espresso'], settings.cabinetColor, 'cabinetColor')}
+            {renderOptionGroup('Wall Cabinet Finish', <Palette size={14} />, ['White', 'Oyster', 'Shoji', 'Pebble', 'Taupe', 'Arctic', 'Slate Blue', 'Naval', 'Saddle', 'Walnut', 'Oak', 'Espresso'], settings.wallCabinetColor, 'wallCabinetColor')}
+            {renderOptionGroup('Base/Island Cabinet Finish', <Palette size={14} />, ['White', 'Oyster', 'Shoji', 'Pebble', 'Taupe', 'Arctic', 'Slate Blue', 'Naval', 'Saddle', 'Walnut', 'Oak', 'Espresso'], settings.baseCabinetColor, 'baseCabinetColor')}
             {renderOptionGroup('Door Style', <Square size={14} />, ['Shaker', 'Flat Panel'], settings.doorStyle, 'doorStyle')}
             {renderOptionGroup('Wall Paint', <Layers size={14} />, ['Pure White', 'Off White', 'Light Gray', 'Beige', 'Soft Blue'], settings.wallColor, 'wallColor')}
             {renderOptionGroup('Countertop', <Box size={14} />, ['White Quartz', 'Black Granite', 'Marble Light', 'Concrete Gray'], settings.countertop, 'countertop')}

@@ -18,7 +18,8 @@ export type ViewMode = '3D Realism' | '2D Architectural Plan';
 
 export interface DesignSettings {
   viewMode: ViewMode;
-  cabinetColor: CabinetColor;
+  baseCabinetColor: CabinetColor; // Renamed/Added
+  wallCabinetColor: CabinetColor; // Added
   doorStyle: DoorStyle;
   wallColor: WallColor;
   countertop: Countertop;
@@ -33,7 +34,8 @@ export interface RenderState {
 
 export const DEFAULT_SETTINGS: DesignSettings = {
   viewMode: '3D Realism',
-  cabinetColor: 'White',
+  baseCabinetColor: 'White', // Default
+  wallCabinetColor: 'White', // Default
   doorStyle: 'Shaker',
   wallColor: 'Pure White',
   countertop: 'White Quartz',

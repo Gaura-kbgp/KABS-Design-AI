@@ -12,8 +12,8 @@ export default function App() {
   const [settings, setSettings] = useState<DesignSettings>(DEFAULT_SETTINGS);
   const [floorPlanFile, setFloorPlanFile] = useState<File | null>(null);
   const [floorPlanPreviews, setFloorPlanPreviews] = useState<string[]>([]);
-  // CHANGED: Support multiple selections
-  const [selectedPreviewIndices, setSelectedPreviewIndices] = useState<number[]>([0]);
+  const [viewingIndex, setViewingIndex] = useState<number>(0); // For viewing only, not selection
+  const [pdfTextContent, setPdfTextContent] = useState<string>(''); // New State for Text
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   
   const [renderState, setRenderState] = useState<RenderState>({
@@ -23,57 +23,103 @@ export default function App() {
     seed: Math.floor(Math.random() * 1000000)
   });
 
+  // --- Helper for Deterministic Seeding ---
+  const generateSeedFromFile = (file: File): number => {
+    // Simple hash based on file properties to ensure same file = same seed
+    const str = `${file.name}-${file.size}-${file.lastModified}`;
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return Math.abs(hash);
+  };
+
   // --- Handlers ---
   const handleFileSelect = async (file: File) => {
     setFloorPlanFile(file);
-    setSelectedPreviewIndices([0]); // Reset to first page
+    setViewingIndex(0); 
     
+    // GENERATE DETERMINISTIC SEED
+    const deterministicSeed = generateSeedFromFile(file);
+
+    // Clear previous results immediately
+    setRenderState(prev => ({ 
+      isLoading: false, // Do NOT start loading automatically. Wait for user to click "Generate".
+      generatedImage: null, 
+      error: null,
+      seed: deterministicSeed // Use fixed seed
+    }));
+
     if (file.type === 'application/pdf') {
       try {
         const images = await fileParser.pdfToImages(file);
         setFloorPlanPreviews(images);
-        setRenderState({ 
-          isLoading: false, 
-          generatedImage: null, 
-          error: null,
-          seed: Math.floor(Math.random() * 1000000)
-        });
+        
+        // Extract Text from PDF
+        const text = await fileParser.pdfToText(file);
+        setPdfTextContent(text);
+        
       } catch (err) {
         console.error("Failed to convert PDF preview", err);
-        setRenderState(prev => ({ ...prev, error: "Failed to read PDF drawing." }));
+        setRenderState(prev => ({ ...prev, isLoading: false, error: "Failed to read PDF drawing." }));
       }
     } else {
       const reader = new FileReader();
       reader.onload = (e) => {
-        setFloorPlanPreviews([e.target?.result as string]);
-        setRenderState({ 
-          isLoading: false, 
-          generatedImage: null, 
-          error: null,
-          seed: Math.floor(Math.random() * 1000000)
-        });
+        const result = e.target?.result as string;
+        setFloorPlanPreviews([result]);
       };
       reader.readAsDataURL(file);
     }
   };
 
+  // Helper to trigger generation with explicit data (bypassing state lag)
+  const triggerGenerationWithData = async (images: string[], text: string, currentSettings: DesignSettings, seedToUse: number) => {
+     try {
+        // Detect mime type
+        const mimeMatch = images[0].match(/^data:(.*);base64,/);
+        const inputMime = mimeMatch ? mimeMatch[1] : 'image/png';
+
+        const imageUrl = await generateKitchenRender(
+          images, 
+          inputMime, 
+          currentSettings, 
+          seedToUse,
+          false, // isRefinement
+          text
+        );
+        
+        setRenderState(prev => ({
+          ...prev,
+          isLoading: false,
+          generatedImage: imageUrl,
+          error: null,
+          seed: seedToUse
+        }));
+     } catch (err: any) {
+        console.error(err);
+        setRenderState(prev => ({
+          ...prev,
+          isLoading: false,
+          generatedImage: null, 
+          error: err.message || "Generation failed."
+        }));
+     }
+  };
+
   const togglePageSelection = (index: number) => {
-    setSelectedPreviewIndices(prev => {
-        if (prev.includes(index)) {
-            // Don't allow deselecting the last one
-            if (prev.length === 1) return prev;
-            return prev.filter(i => i !== index);
-        } else {
-            // APPEND to the end (The last selected becomes the Master View)
-            return [...prev, index]; 
-        }
-    });
+    // Just switch the view, do not toggle selection (Everything is selected by default)
+    setViewingIndex(index);
   };
 
   const handleSettingsUpdate = (key: keyof DesignSettings, value: string) => {
     const newSettings = { ...settings, [key]: value };
     setSettings(newSettings);
-    if (floorPlanPreviews.length > 0) {
+    // Only auto-update if we already have a render (Refinement Mode).
+    // If we are in "Ready to Render" mode (initial state), do NOT auto-trigger. User must click "Generate".
+    if (floorPlanPreviews.length > 0 && renderState.generatedImage) {
       triggerGeneration(newSettings);
     }
   };
@@ -95,8 +141,8 @@ export default function App() {
         // Refinement mode: Use the existing render
         inputData = renderState.generatedImage.split(',')[1];
       } else {
-        // New Generation: Use ALL selected preview images
-        const selectedImages = selectedPreviewIndices.map(i => floorPlanPreviews[i]);
+        // New Generation: Use ALL preview images
+        const selectedImages = floorPlanPreviews;
         
         // Pass array of base64 strings (full data URLs)
         inputData = selectedImages;
@@ -113,7 +159,8 @@ export default function App() {
         inputMime, 
         currentSettings, 
         seedToUse,
-        hasPreviousRender
+        hasPreviousRender,
+        pdfTextContent // Pass the extracted text
       );
       
       setRenderState(prev => ({
@@ -136,7 +183,8 @@ export default function App() {
   const resetUpload = () => {
     setFloorPlanFile(null);
     setFloorPlanPreviews([]);
-    setSelectedPreviewIndices([0]);
+    setPdfTextContent('');
+    setViewingIndex(0);
     setRenderState({ 
       isLoading: false, 
       generatedImage: null, 
@@ -157,9 +205,9 @@ export default function App() {
   };
 
   const handleRegenerate = () => {
-    const newSeed = Math.floor(Math.random() * 1000000);
-    setRenderState(prev => ({ ...prev, seed: newSeed }));
-    triggerGeneration(settings, newSeed, true);
+    // Preserve the current seed unless explicitly forcing a new one (which we don't do here anymore)
+    // This ensures that "Update Render" (e.g. changing colors) KEEPS the same geometry/layout.
+    triggerGeneration(settings, renderState.seed, true);
   };
 
   const closeRender = () => {
@@ -226,70 +274,15 @@ export default function App() {
                   </div>
                 )}
 
-                {!floorPlanFile ? (
+                {/* Content Area - Only Show Upload Zone if no file is selected */}
+                {!floorPlanFile && (
                   <UploadZone onFileSelect={handleFileSelect} />
-                ) : (
-                  <div className="w-full max-w-6xl flex flex-col xl:flex-row gap-6 h-full">
+                )}
+
+                {/* Loading State or Result State */}
+                {floorPlanFile && (
+                  <div className="w-full max-w-6xl flex flex-col h-full">
                       
-                      {/* Left: Input Preview & Selection */}
-                      <div className="w-full xl:w-1/3 flex flex-col gap-4">
-                        <div className="bg-slate-900 rounded-xl p-4 border border-slate-800 shadow-xl flex-1 flex flex-col">
-                            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Input Drawing</h3>
-                            
-                            {/* Main Preview */}
-                            <div className="relative aspect-[4/3] bg-white rounded-lg overflow-hidden border border-slate-700 mb-4">
-                              {floorPlanPreviews.length > 0 && (
-                                <img 
-                                  src={floorPlanPreviews[selectedPreviewIndices[selectedPreviewIndices.length - 1]]} // Show the most recently added selection or last one
-                                  alt={`Page ${selectedPreviewIndices[selectedPreviewIndices.length - 1] + 1}`} 
-                                  className="w-full h-full object-contain"
-                                />
-                              )}
-                              {selectedPreviewIndices.length > 1 && (
-                                <div className="absolute top-2 right-2 bg-black/60 text-white text-[10px] px-2 py-1 rounded-full backdrop-blur-sm">
-                                  +{selectedPreviewIndices.length - 1} other(s) selected
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Page Selection Strip */}
-                            {floorPlanPreviews.length > 1 && (
-                              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                                {floorPlanPreviews.map((img, idx) => {
-                                  const isSelected = selectedPreviewIndices.includes(idx);
-                                  return (
-                                    <button 
-                                      key={idx}
-                                      onClick={() => togglePageSelection(idx)}
-                                      className={`relative w-16 h-16 shrink-0 rounded-md overflow-hidden border-2 transition-all ${
-                                        isSelected 
-                                          ? 'border-blue-500 ring-2 ring-blue-500/20 scale-105' 
-                                          : 'border-slate-700 hover:border-slate-500 opacity-60 hover:opacity-100'
-                                      }`}
-                                    >
-                                      <img src={img} className="w-full h-full object-cover" />
-                                      <span className="absolute bottom-0 right-0 bg-black/70 text-[10px] text-white px-1">P{idx + 1}</span>
-                                      
-                                      {/* Selection Indicator */}
-                                      {isSelected && (
-                                        <div className="absolute top-0 right-0 bg-blue-500 text-white w-4 h-4 flex items-center justify-center rounded-bl-md">
-                                          <span className="text-[10px] font-bold">✓</span>
-                                        </div>
-                                      )}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            )}
-                            
-                            <div className="mt-auto pt-4 border-t border-slate-800/50">
-                                <p className="text-xs text-slate-500 text-center">
-                                  <strong>Tip:</strong> Select Context images first. Select the <strong>Main View LAST</strong> (it will be the basis for the render).
-                                </p>
-                            </div>
-                        </div>
-                      </div>
-
                       {/* Right: Output Render */}
                       <div className="flex-1 bg-slate-900 rounded-xl p-1 border border-slate-800 shadow-2xl relative group overflow-hidden flex flex-col">
                         <div className="absolute top-4 left-4 z-10">
@@ -315,15 +308,15 @@ export default function App() {
                               className={`w-full h-full object-contain transition-opacity duration-700 ${renderState.isLoading ? 'opacity-50 blur-sm' : 'opacity-100'}`}
                             />
                             
-                            {/* Floating Toolbar for Update / Back */}
-                            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-slate-950/80 p-2 rounded-full backdrop-blur-md border border-slate-800 shadow-2xl">
+                            {/* Floating Toolbar for Update / Back - Always Visible */}
+                            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-slate-950/80 p-2 rounded-full backdrop-blur-md border border-slate-800 shadow-2xl">
                                 <button 
-                                  onClick={closeRender}
+                                  onClick={resetUpload}
                                   className="flex items-center gap-2 px-4 py-2 rounded-full text-slate-300 hover:text-white hover:bg-slate-800 transition-colors text-sm font-medium"
                                   disabled={renderState.isLoading}
                                 >
                                   <ArrowLeft size={16} />
-                                  Back to Input
+                                  Upload New
                                 </button>
                                 
                                 <div className="w-px h-6 bg-slate-700"></div>
@@ -342,19 +335,57 @@ export default function App() {
                                 </button>
                             </div>
                           </div>
-                        ) : (
-                          <div className="h-full flex flex-col items-center justify-center p-8 text-center">
-                             <div className="w-20 h-20 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <RefreshCw className="text-slate-600" size={32} />
+                        ) : renderState.isLoading ? (
+                          // LOADING STATE (When file selected but image not yet ready)
+                          <div className="h-full flex flex-col items-center justify-center p-8 text-center space-y-6">
+                             <div className="relative">
+                               <div className="w-24 h-24 rounded-full border-4 border-slate-800 border-t-blue-500 animate-spin"></div>
+                               <div className="absolute inset-0 flex items-center justify-center">
+                                 <RefreshCw className="text-blue-500 animate-pulse" size={32} />
+                               </div>
                              </div>
-                             <h3 className="text-slate-300 font-medium">Ready to Visualize</h3>
-                             <p className="text-sm text-slate-500 mt-2 max-w-xs mx-auto">
-                               {selectedPreviewIndices.length === 1 
-                                 ? `Selected Page ${selectedPreviewIndices[0] + 1}` 
-                                 : `${selectedPreviewIndices.length} Pages Selected`}
-                             </p>
-                             <button onClick={() => triggerGeneration(settings)} disabled={renderState.isLoading} className="mt-6 bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-full text-sm font-medium shadow-lg transition-transform active:scale-95">
-                               {renderState.isLoading ? 'Rendering...' : `Generate from ${selectedPreviewIndices.length} Page${selectedPreviewIndices.length > 1 ? 's' : ''}`}
+                             <div>
+                               <h3 className="text-xl text-white font-semibold">Analyzing Blueprint...</h3>
+                               <p className="text-slate-400 mt-2 max-w-sm mx-auto">
+                                 Identifying walls, islands, and cabinets. Constructing 3D scene...
+                               </p>
+                             </div>
+                          </div>
+                        ) : (
+                          // READY STATE (File uploaded, waiting for user to click Generate)
+                          <div className="h-full flex flex-col items-center justify-center p-8 text-center space-y-8">
+                             
+                             <div className="relative group cursor-pointer" onClick={() => setSidebarOpen(true)}>
+                                <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl blur opacity-25 group-hover:opacity-75 transition duration-1000 group-hover:duration-200"></div>
+                                <div className="relative w-64 h-64 md:w-80 md:h-80 bg-slate-800 rounded-xl overflow-hidden border border-slate-700 shadow-2xl flex items-center justify-center">
+                                   {floorPlanPreviews.length > 0 ? (
+                                     <img src={floorPlanPreviews[0]} alt="Preview" className="w-full h-full object-contain opacity-80" />
+                                   ) : (
+                                     <div className="text-slate-600">No Preview</div>
+                                   )}
+                                   
+                                   {/* Overlay Hint */}
+                                   <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <div className="bg-slate-900/90 text-white px-4 py-2 rounded-full text-sm font-medium backdrop-blur-md flex items-center gap-2">
+                                        <Settings2 size={16} /> Configure Settings
+                                      </div>
+                                   </div>
+                                </div>
+                             </div>
+                      
+                             <div>
+                               <h3 className="text-2xl text-white font-bold">Ready to Render</h3>
+                               <p className="text-slate-400 mt-2 max-w-md mx-auto">
+                                 Your blueprint is loaded. Select your colors and materials in the sidebar, then click Generate.
+                               </p>
+                             </div>
+                             
+                             <button 
+                               onClick={() => triggerGeneration(settings)}
+                               className="bg-blue-600 hover:bg-blue-500 text-white text-lg font-bold px-10 py-4 rounded-full shadow-blue-900/20 shadow-xl hover:shadow-2xl hover:scale-105 transition-all flex items-center gap-3"
+                             >
+                               <RefreshCw size={24} />
+                               GENERATE RENDER
                              </button>
                           </div>
                         )}

@@ -1,105 +1,93 @@
-<div align="center">
-  <img width="1200" height="475" alt="KABS Design AI" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# KABS Design AI - Deployment & Developer Guide
 
-# KABS Design AI
+## 1. Project Overview
+**KABS Design AI** is a specialized Sketch-to-Render engine designed to convert technical kitchen blueprints (PDF/Images) into photorealistic 3D visualizations. It is built with **React/Vite** and powered by **Google Gemini 2.5 Flash Image** model.
 
-KABS Design AI is a professional architectural visualization tool that transforms technical 2D/3D kitchen drawings (PDFs) into photorealistic renders. It utilizes Google's Gemini 1.5 Flash multimodal AI to "see" and understand technical sketches, applying realistic textures and lighting while strictly adhering to the original geometry.
-
-## 🚀 Features
-
-- **Smart PDF Parsing**: Converts multi-page PDF technical drawings into high-resolution images.
-- **Multi-View Context**: Allows users to select multiple pages (e.g., floor plans + 3D perspectives).
-- **Master View Logic**: The last selected image acts as the "Camera Angle," while previous images provide spatial context.
-- **Geometry Lock**: Uses a "Tracing Protocol" to ensure the AI renders *exactly* what is drawn, without hallucinating extra furniture or decorations.
-- **Photorealistic Rendering**: Transforms line drawings into "Real Life" photos based on selected styles (Modern, Traditional, etc.) and color palettes.
+### Key Capabilities
+- **Smart PDF Scanning**: Analyzes up to 30 pages of a PDF to identify the best 3D perspective view.
+- **Single-View Synthesis**: Merges details from multiple pages (e.g., Island Detail + Wall Elevation) into a single coherent scene.
+- **Deterministic Rendering**: Hashing algorithm ensures that re-uploading the same file produces the exact same geometry (100% consistency).
+- **ControlNet-Style Coloring**: "Paints" over the original lines rather than generating a new scene from scratch, ensuring architectural fidelity.
+- **Shape-Aware Camera**: Automatically adjusts camera rules for U-Shape (Long Distance), L-Shape (Opposite Corner), and Galley kitchens.
 
 ---
 
-## 📂 Code Structure & File Details
+## 2. Deployment Instructions
 
-### Core Application
-- **[`App.tsx`](file:///App.tsx)**: The main entry point and state manager.
-  - Manages the "Master View" selection logic (last selected image = camera view).
-  - Handles the floating toolbar for "Update Render" and "Back to Input".
-  - Coordinates the flow between file upload, page selection, and rendering.
+### Prerequisites
+- Node.js (v18 or higher)
+- Google Cloud Project with **Gemini API Key** enabled.
 
-### Services (The Brains)
-- **[`services/geminiService.ts`](file:///services/geminiService.ts)**: The AI Engine.
-  - Communicates with Google's Gemini 1.5 Flash API.
-  - Contains the **System Prompt** with "Tracing Protocols" and "No Hallucination" rules.
-  - Implements the logic to prioritize "Detail Views" (e.g., island sketches) over generic master views for specific cabinetry details.
-- **[`services/fileParser.ts`](file:///services/fileParser.ts)**: The Vision System.
-  - Uses `pdf.js` to render PDF pages into Base64 images.
-  - Ensures high-quality input for the AI to recognize faint lines and text labels.
+### Steps to Deploy
+1.  **Clone Repository**
+    ```bash
+    git clone <repository-url>
+    cd kabs-design-ai
+    ```
 
-### Components (UI)
-- **[`components/Sidebar.tsx`](file:///components/Sidebar.tsx)**: Design Controls.
-  - Allows users to select Design Styles (Modern, Industrial, etc.) and Color Palettes.
-  - Simplified to focus purely on aesthetics.
-- **[`components/UploadZone.tsx`](file:///components/UploadZone.tsx)**: Input Interface.
-  - Handles PDF drag-and-drop functionality.
+2.  **Install Dependencies**
+    ```bash
+    npm install
+    ```
 
-### Configuration
-- **[`vite.config.ts`](file:///vite.config.ts)**: Build configuration.
-  - Configured to inject environment variables (`process.env`) for secure API key handling.
+3.  **Environment Setup**
+    Create a `.env` file in the root directory:
+    ```env
+    VITE_API_KEY=your_google_gemini_api_key_here
+    ```
 
----
+4.  **Production Build**
+    ```bash
+    npm run build
+    ```
+    This will generate a `dist/` folder containing the static assets.
 
-## 🛠️ Local Development
-
-**Prerequisites:** Node.js (v18+ recommended)
-
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/Gaura-kbgp/KABS-Design-AI.git
-   cd kabs-design-ai
-   ```
-
-2. **Install dependencies:**
-   ```bash
-   npm install
-   ```
-
-3. **Configure Environment Variables:**
-   - Create a `.env` file in the root directory.
-   - Add your Gemini API Key:
-     ```env
-     GEMINI_API_KEY=your_google_gemini_api_key_here
-     ```
-
-4. **Run the app:**
-   ```bash
-   npm run dev
-   ```
+5.  **Hosting**
+    You can deploy the `dist/` folder to any static hosting service:
+    - **Vercel**: `vercel deploy`
+    - **Netlify**: Drag and drop `dist` folder.
+    - **AWS S3 / CloudFront**: Upload contents of `dist`.
 
 ---
 
-## 🌍 Deployment Process
+## 3. Codebase Structure
 
-This project is built with **Vite** and can be easily deployed to platforms like Vercel, Netlify, or Cloudflare Pages.
+### `/src`
+- **`App.tsx`**: Main application logic. Handles file uploads, state management, and the deterministic rendering workflow.
+- **`services/`**
+  - **`geminiService.ts`**: The core AI logic. Contains the complex prompt engineering (Phases 1-6), negative prompts, and API interaction.
+  - **`fileParser.ts`**: Handles PDF processing. Uses `pdfjs-dist` to convert pages to images and extract text.
+- **`components/`**
+  - **`Sidebar.tsx`**: UI for selecting cabinet colors, door styles, and materials.
+  - **`UploadZone.tsx`**: Drag-and-drop file interface.
+- **`types.ts`**: TypeScript definitions for Design Settings and Render States.
 
-### Deploy to Vercel (Recommended)
+---
 
-1. **Push your code to GitHub.**
-2. **Import project into Vercel:**
-   - Go to the Vercel Dashboard and click "Add New Project".
-   - Select your `KABS-Design-AI` repository.
-3. **Configure Build Settings:**
-   - Framework Preset: `Vite`
-   - Build Command: `npm run build`
-   - Output Directory: `dist`
-4. **Set Environment Variables:**
-   - In the "Environment Variables" section, add:
-     - Key: `GEMINI_API_KEY`
-     - Value: `your_actual_api_key`
-5. **Deploy:**
-   - Click "Deploy". Vercel will build the project and provide a live URL.
+## 4. Key Algorithms
 
-### Manual Build
-To create a production build locally:
-
-```bash
-npm run build
+### Deterministic Seeding (`App.tsx`)
+To ensure consistency, we generate a seed based on the file's metadata:
+```typescript
+const generateSeedFromFile = (file: File): number => {
+  const str = `${file.name}-${file.size}-${file.lastModified}`;
+  // ... hash logic ...
+  return Math.abs(hash);
+};
 ```
-The output will be in the `dist/` folder, which can be served by any static file server.
+
+### Intelligent View Selection (`geminiService.ts`)
+The AI is instructed to scan all input images and prioritize them based on keywords ("Perspective", "3D") and visual content (Wide Angle vs. Detail View).
+
+### Refinement vs. Fresh Generation
+- **Initial Render**: Uses the PDF inputs + Seed.
+- **Sidebar Updates**: Uses the *Generated Image* as input (Image-to-Image) to swap colors without changing geometry.
+- **"Update Render" Button**: Forces a fresh generation from PDF using the same seed (useful for resetting artifacts).
+
+---
+
+## 5. Troubleshooting
+
+- **"Split Screen" Output**: If the AI generates two images side-by-side, check `geminiService.ts` Negative Prompts. The current prompt explicitly forbids "SPLIT SCREEN" and "COLLAGE".
+- **Missing Cabinets**: Ensure the PDF contains a clear 3D view. 2D-only floor plans are harder to visualize in 3D without a reference sketch.
+- **API Errors**: Check the Browser Console. If you see `400 Bad Request`, the payload might be too large (too many pages). The `fileParser.ts` limits scanning to 30 pages to prevent this.

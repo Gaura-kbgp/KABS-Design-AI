@@ -1,15 +1,17 @@
 import { GoogleGenAI } from "@google/genai";
 import { DesignSettings, COLOR_PROMPT_MAP } from "../types";
 
-// Switching to gemini-2.5-flash-image (standard model)
-const MODEL_NAME = 'gemini-2.5-flash-image'; 
+// Using Gemini 2.5 Flash Image model as requested. 
+// This model is optimized for native image generation.
+const MODEL_NAME = 'gemini-2.5-flash-image';     
 
 export async function generateKitchenRender(
   inputImages: string | string[], // Can be single base64 or array of base64 strings
   mimeType: string,
   settings: DesignSettings,
   seed: number,
-  isRefinement: boolean = false // True if we are just changing colors on an existing render
+  isRefinement: boolean = false, // True if we are just changing colors on an existing render
+  pdfTextContext: string = '' // New: Raw text from PDF
 ): Promise<string> {
   // Vite exposes env variables prefixed with VITE_ on import.meta.env
   // However, guidelines strictly require using process.env.API_KEY
@@ -24,11 +26,59 @@ export async function generateKitchenRender(
 
   const commonRules = `
     [MATERIAL CONSISTENCY RULES]
-    1. **UNIFORM COLOR**: All cabinets (Perimeter AND Island) must be "${COLOR_PROMPT_MAP[settings.cabinetColor]}" unless the floor plan has a text label explicitly naming a different color for the island.
-       - Do NOT make the island a random accent color.
-       - Do NOT make upper cabinets a different color from base cabinets.
-    2. **COUNTERTOPS**: All surfaces must be "${settings.countertop}".
-    3. **DOOR STYLE**: ${doorDescription}.
+    1. **WALL CABINETS (Uppers)**: Must be "${COLOR_PROMPT_MAP[settings.wallCabinetColor]}".
+       - This applies to all cabinets MOUNTED ON THE WALL above the counter.
+    2. **BASE CABINETS & ISLAND**: Must be "${COLOR_PROMPT_MAP[settings.baseCabinetColor]}".
+       - **CRITICAL**: This color applies to ALL LOWER ELEMENTS:
+         - All Base Cabinets (under the counter).
+         - All Drawers (drawer fronts).
+         - The entire Island structure (front, back, and sides).
+       - **DRAWER COLOR RULE**: Drawers are part of the base cabinets. They MUST be ${COLOR_PROMPT_MAP[settings.baseCabinetColor]}.
+         - IGNORE any shading in the sketch that suggests a different material.
+         - If the base cabinets are ${COLOR_PROMPT_MAP[settings.baseCabinetColor]}, the DRAWERS are also ${COLOR_PROMPT_MAP[settings.baseCabinetColor]}.
+       - This is a Two-Tone kitchen design if the colors are different.
+       - STRICTLY respect the separation: Uppers = ${settings.wallCabinetColor}, Lowers = ${settings.baseCabinetColor}.
+    3. **COUNTERTOPS**: All surfaces must be "${settings.countertop}".
+    4. **DOOR STYLE**: ${doorDescription}.
+  `;
+
+  // NKBA Standards Reference
+  const nkbaStandards = `
+    [NKBA CABINET NOMENCLATURE - STRICT DECODING]
+    - **B[Width]**: Base Cabinet (e.g., B30 = 30" Base). Standard has 1 drawer on top, doors below.
+    - **DB[Width]** or **3DB[Width]**: Drawer Base. 3-drawer stack. (e.g., DB30).
+    - **SB[Width]**: Sink Base. False drawer front on top, 2 doors below.
+    - **W[Width][Height]**: Wall Cabinet (e.g., W3030 = 30" Wide, 30" High).
+    - **MW** or **MICRO**: Microwave Cabinet.
+    - **OV** or **OVEN**: Wall Oven Cabinet (Tall).
+    - **REP** or **REF**: Refrigerator Enclosure.
+    - **DW**: Dishwasher (24" wide space next to sink).
+    - **F** or **FILLER**: Filler strip (plain wood).
+  `;
+
+  const photorealismRules = `
+      [PHASE 3: PHOTOREALISTIC STYLE TRANSFER]
+      - **TASK**: Treat the input lines as a "Wireframe".
+      - **ACTION**: Apply PBR (Physically Based Rendering) materials to the wireframe.
+      - **LIGHTING**: Add "Global Illumination". Light must bounce off the floor onto the cabinets.
+      - **DEPTH**: Add "Ambient Occlusion" in the corners.
+      - **SHADOWS**: The island must cast a soft shadow on the wood floor.
+      - **REFLECTIONS**: The countertop must reflect the under-cabinet lighting.
+      - **ANTI-FLATNESS**: Banish "flat colors". Every surface must have texture (grain, vein, noise).
+  `;
+
+  const negativePrompt = `
+      [NEGATIVE PROMPT - STRICTLY FORBIDDEN]
+      - **SPLIT SCREEN**, **COLLAGE**, **GRID**, **TILED IMAGES**.
+      - **WHITE BORDERS** inside the image.
+      - **MULTIPLE VIEWPOINTS**.
+      - **CARTOON**, **FLAT COLOR**, **SKETCH STYLE** (Output must be PHOTO-REAL).
+      - **GHOSTING**, **DOUBLE VISION**.
+      - **INSET IMAGES** (Do not put small pictures in the corner).
+      - **BLUEPRINT LINES** (This is a photo, not a drawing).
+      - **TEXT OVERLAYS**.
+      - **HALLUCINATED OBJECTS**: No fruit bowls, no vases, no plants, no knife blocks unless in sketch.
+      - **DISTORTED PERSPECTIVE**: No fisheye, no warped walls.
   `;
 
   if (settings.viewMode === '2D Architectural Plan') {
@@ -40,10 +90,11 @@ export async function generateKitchenRender(
       [STRICT ADHERENCE]
       1. KEEP ALL ORIGINAL TEXT LABELS (Cabinet Codes like B30, W3030). Do not obscure them.
       2. FILL COLORS inside the existing lines only.
-      3. Cabinet Fill: ${COLOR_PROMPT_MAP[settings.cabinetColor]}
-      4. Flooring: Subtle grid or wood texture.
-      5. Do not change the geometry.
-
+      3. Base Cabinet Fill: ${COLOR_PROMPT_MAP[settings.baseCabinetColor]}
+      4. Wall Cabinet Fill: ${COLOR_PROMPT_MAP[settings.wallCabinetColor]}
+      5. Flooring: Subtle grid or wood texture.
+      6. Do not change the geometry.
+      
       Output: High-quality colored architectural plan.
     `;
   } else if (isRefinement) {
@@ -57,77 +108,97 @@ export async function generateKitchenRender(
       - KEEP THE EXACT CAMERA ANGLE.
       
       [UPDATES]
-      - Change Cabinet Color to: ${COLOR_PROMPT_MAP[settings.cabinetColor]} (Apply to ALL cabinets including Island).
+      - Change Wall Cabinet Color to: ${COLOR_PROMPT_MAP[settings.wallCabinetColor]}
+      - Change Base/Island Cabinet Color to: ${COLOR_PROMPT_MAP[settings.baseCabinetColor]}
       - Change Wall Color to: ${settings.wallColor}
       - Change Countertop to: ${settings.countertop}
       
       ${commonRules}
+
+      ${photorealismRules}
+
+      ${negativePrompt}
       
       Output: Photorealistic image with identical geometry to input.
     `;
   } else {
     // === MODE 1: 3D INITIAL CONSTRUCTION FROM PDF/IMAGE ===
+    const isMultiPage = Array.isArray(inputImages) && inputImages.length > 1;
+
     prompt = `
-      You are an expert Architectural Visualization AI. 
-      TASK: Generate a high-quality 3D render of the kitchen shown in the input images.
-
-      [INPUT ANALYSIS & HIERARCHY]
-      You have been provided with one or more input images.
+      [SYSTEM: CRITICAL OVERRIDE]
+      **MODE**: STRICT SKETCH TEXTURIZATION (CONTROLNET BEHAVIOR).
+      **GOAL**: Do NOT "generate" a kitchen. Do NOT "design" a kitchen. 
+      **TASK**: You are a digital painter. Take the provided "Wireframe Sketch" and "fill it" with photorealistic textures and lighting.
       
-      **CRITICAL RULE: The LAST image in the list is the "MASTER VIEW".**
-      - You MUST generate the final render from the **EXACT SAME CAMERA ANGLE** as the LAST image.
-      - If the last image is a 3D Line Drawing/Sketch: You must essentially "paint over" it. Do not change the perspective. Do not move lines. Replace the sketch lines with photorealistic textures.
-      - If the last image is a **2D Elevation (Front View of cabinets)**: Render it as a **Photorealistic Elevation**. Keep it flat and straight-on. Do not turn it into a perspective view.
-      - If the last image is a Floor Plan: You must Extrude it into 3D from a standard eye-level perspective.
-      - Any *other* images (if provided) are ONLY for reference (e.g. to see dimensions from a floor plan while rendering the sketch).
+      [PHASE 0: CONTENT PRESERVATION - "NO ADDITIONS" RULE]
+      - **FORBIDDEN**: Do NOT add vases, plants, fruit bowls, knife blocks, or clutter.
+      - **FORBIDDEN**: Do NOT add windows or doors that are not in the sketch.
+      - **FORBIDDEN**: Do NOT change the cabinet door count.
+      - **RULE**: If it's not in the lines, it doesn't exist. Keep the scene ARCHITECTURALLY CLEAN.
 
-      [MULTI-VIEW CONSISTENCY - CRITICAL]
-      If you are provided with a "Detail View" (e.g., a close-up of an island, specific cabinet run, or hood) AND a "Master View" (Full Kitchen):
-      - You MUST Update the Master View to match the specific design details found in the Detail View.
-      - **Example**: If the Master View shows a generic island, but the Detail View shows an island with a Microwave Drawer and 3 Drawers, you MUST render the Master View island with that exact Microwave and Drawer configuration.
-      - **Trust the Detail View** for specific furniture configurations over the generic Master View sketch.
+      [PHASE 1: INTELLIGENT VIEW SELECTION & MASTER REFERENCE]
+      - **INPUT**: You have a set of images (Plans, Sketches, Details).
+      - **TASK**: Scan ALL provided images to find the **"BEST FULL-KITCHEN SKETCH"**.
+      - **SELECTION CRITERIA**:
+        1. **MUST BE A 3D VIEW** (Not a 2D floor plan).
+        2. **MUST BE EYE-LEVEL** (Avoid top-down "bird's eye" views if possible).
+        3. **MUST BE WIDE ANGLE** (Shows the most cabinets, walls, and context).
+        4. **IGNORE PARTIALS**: Do not select an image that only shows the Island or only one wall.
+      - **ACTION**: Designate this selected image as your **MASTER GEOMETRY REFERENCE**. All colors and textures will be applied to this specific view.
 
-      [TRANSFORMATION LOGIC - "THE PIXEL-PERFECT TEXTURE OVERLAY"]
-      You are NOT a creative artist. You are a "Texture Mapping Engine".
+      [PHASE 2: DATA EXTRACTION & VIEW SYNTHESIS]
+      - **CONTEXT**: The PDF contains "Detail Views" (e.g., a zoom-in of the island, a flat elevation of the wall).
+      - **ACTION**: 
+        1. **IDENTIFY**: Look at the "Island Detail" to see exactly how many drawers/doors it has.
+        2. **TRANSFER**: Paint those exact drawers/doors onto the Island in the **MASTER GEOMETRY REFERENCE**.
+        3. **IGNORE POSITION**: Do not let the "Detail View" camera angle override the "Master View" camera angle.
+        4. **UNIFY**: The result must be ONE single image (The Master View) with the high-fidelity details from the other pages painted in.
+
+      [PHASE 3: CAMERA ANGLE & SHAPE OPTIMIZATION]
+      - **CRITICAL**: Adjust your rendering approach based on the KITCHEN SHAPE detected in the Master Reference:
       
-      **TASK**:
-      1. Take the input line drawing (the Last Image).
-      2. Keep EVERY SINGLE LINE exactly where it is.
-      3. Simply "fill" the areas between lines with photorealistic textures.
+      - **CASE A: U-SHAPE KITCHEN**
+        - **CAMERA RULE**: **"LONG DISTANCE" / FAR BACK**.
+        - **GOAL**: You MUST capture ALL 3 WALLS and the CENTER ISLAND.
+        - **CORRECTION**: If the sketch cuts off the side walls, conceptually "step back" the camera to reveal the full U-shape structure.
       
-      **STRICT CONSTRAINTS**:
-      - **DO NOT RE-DRAW THE CABINETS.**
-      - If the drawing shows 3 drawers, YOU MUST RENDER 3 DRAWERS.
-      - If the drawing shows a Microwave opening, YOU MUST RENDER A MICROWAVE OPENING in that exact spot.
-      - **DO NOT** straighten perspective. **DO NOT** "fix" the drawing.
-      - **DO NOT** add handles if they aren't there.
-      - **DO NOT** change the number of panels.
+      - **CASE B: L-SHAPE KITCHEN**
+        - **CAMERA RULE**: **"OPPOSITE CORNER"**.
+        - **GOAL**: Position camera in the empty corner looking into the 'L'. Show both wall runs and the Island.
       
-      **ISLAND MATCHING RULE**:
-      - Look at the "Detail View" (if provided).
-      - Count the drawers. Count the doors. Note the position of appliances.
-      - The Final Render MUST have the EXACT SAME count of drawers/doors/appliances.
-      - **If the render does not match the drawing line-for-line, you have FAILED.**
+      - **CASE C: GALLEY / STRAIGHT WALL**
+        - **CAMERA RULE**: **"FRONTAL WIDE ANGLE"**.
+        - **GOAL**: Show the entire length of the cabinetry run from a direct or slight angle.
 
-      [NO HALLUCINATIONS / NO ADD-ONS]
-      - **ABSOLUTELY NO DECORATIONS** (No fruit, no plants, no vases).
-      - Render the kitchen **EMPTY**.
+      [PHASE 4: PHOTOREALISTIC STYLE TRANSFER]
+      - **TASK**: Treat the input lines as a "Wireframe".
+      - **ACTION**: Apply PBR (Physically Based Rendering) materials to the wireframe.
+      - **LIGHTING**: Add "Global Illumination". Light must bounce off the floor onto the cabinets.
+      - **DEPTH**: Add "Ambient Occlusion" in the corners.
+      - **SHADOWS**: The island must cast a soft shadow on the wood floor.
+      - **REFLECTIONS**: The countertop must reflect the under-cabinet lighting.
+      - **ANTI-FLATNESS**: Banish "flat colors". Every surface must have texture (grain, vein, noise).
 
-      [STRICT MATERIAL SPECS]
-      1. **CABINET COLOR**: ${COLOR_PROMPT_MAP[settings.cabinetColor]} (Apply to ALL cabinets unless island is noted otherwise).
-      2. **COUNTERTOPS**: ${settings.countertop} (Must look like real stone/quartz with reflections).
-      3. **DOOR STYLE**: ${doorDescription}.
-      4. **WALLS**: ${settings.wallColor}.
+      [PHASE 5: GEOMETRY & FIDELITY - PIXEL PERFECT MATCH]
+      - **PRIMARY DIRECTIVE**: The Input Sketch is the ABSOLUTE TRUTH for geometry.
+      - **CONFLICT RESOLUTION**: If text says "3 Drawers" but drawing shows 2, **RENDER 2**.
+      - **ISLAND PANELS**: Look at the "Island Elevation". If it shows wainscoting lines, render them.
+      - **CABINET CODES**: Use text only to determine *what* something is (e.g., "SB36" tells you it's a sink).
 
-      Output: A single high-quality photorealistic image that perfectly matches the perspective of the last input image.
-      5. **FLOOR**: Hardwood or Tile (Photorealistic texture).
+      [PHASE 6: APPLIANCE & FIXTURE DETECTION]
+      - **SINK**: Locate "SB36". If on Island, render sink on Island. If on Wall, render on Wall.
+      - **FRIDGE**: Render Stainless Steel Fridge where the box is.
+      - **RANGE**: Render Stainless Steel Range where the stove is.
+      - **MICRO**: Only render Microwave if "MW" or "Micro" is explicitly drawn/labeled.
 
-      [COMMON MISTAKES TO AVOID]
-      - Do NOT return a "colored sketch". It must be a PHOTO.
-      - Do NOT leave black wireframe lines visible.
-      - Do NOT change the camera angle.
+      ${commonRules}
+      
+      ${nkbaStandards}
 
-      Output: A Photorealistic 3D Render matching the drawing's geometry exactly.
+      ${negativePrompt}
+
+      Output: A single, photorealistic, wide-angle interior design photograph.
     `;
   }
 
@@ -157,23 +228,27 @@ export async function generateKitchenRender(
       },
       config: {
         seed: seed,
-        // Increased temperature slightly to allow for better texture/lighting synthesis while keeping geometry strict
-        temperature: 0.35, 
-        imageConfig: {
-            aspectRatio: '4:3',
-        },
-        safetySettings: [
-          { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' },
-          { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' },
-          { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_ONLY_HIGH' },
-          { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' },
-        ],
+        // Reduced temperature to 0.20 to ensure strict adherence to prompts and higher consistency.
+        // Higher values (0.5+) caused randomness in layout.
+        // We rely on the PROMPT TEXT ("One Room Rule") to break the layout, not the temperature.
+        temperature: 0.20, 
+        // Safety settings removed to avoid type conflicts with @google/genai SDK. 
+        // Default safety settings will apply.
       },
     });
 
     const candidates = response.candidates;
     if (candidates && candidates.length > 0) {
-      const parts = candidates[0].content.parts;
+      // Safety check: Ensure content and parts exist before iterating
+      const content = candidates[0].content;
+      
+      // Handle cases where parts might be null or undefined
+      if (!content || !content.parts) {
+         console.warn("Gemini returned a candidate but no content parts. Raw response:", JSON.stringify(candidates[0]));
+         throw new Error("AI returned an empty response. Please try again.");
+      }
+      
+      const parts = content.parts;
       
       for (const part of parts) {
         if (part.inlineData && part.inlineData.data) {
