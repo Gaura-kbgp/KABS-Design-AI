@@ -125,12 +125,26 @@ export async function generateKitchenRender(
     // === MODE 1: 3D INITIAL CONSTRUCTION FROM PDF/IMAGE ===
     const isMultiPage = Array.isArray(inputImages) && inputImages.length > 1;
 
+    // DETECT IF SINGLE IMAGE INPUT
+    // If user selects only ONE page, we must enforce strict single-image processing
+    const singleImageDirectives = !isMultiPage ? `
+      [SINGLE IMAGE MODE ACTIVATED]
+      - **INPUT**: You have received EXACTLY ONE image.
+      - **CONSTRAINT**: You MUST process this single image.
+      - **PROHIBITION**: Do not create a "before/after" comparison.
+      - **PROHIBITION**: Do not create a "top/bottom" split.
+      - **PROHIBITION**: Do not create a "collage".
+      - **ACTION**: Output exactly one image that has the same aspect ratio and composition as the input.
+    ` : '';
+
     prompt = `
       [SYSTEM: CRITICAL OVERRIDE]
       **MODE**: STRICT SKETCH TEXTURIZATION (CONTROLNET BEHAVIOR).
       **GOAL**: Do NOT "generate" a kitchen. Do NOT "design" a kitchen. 
       **TASK**: You are a digital painter. Take the provided "Wireframe Sketch" and "fill it" with photorealistic textures and lighting.
       
+      ${singleImageDirectives}
+
       [PHASE 0: CONTENT PRESERVATION - "NO ADDITIONS" RULE]
       - **FORBIDDEN**: Do NOT add vases, plants, fruit bowls, knife blocks, or clutter.
       - **FORBIDDEN**: Do NOT add windows or doors that are not in the sketch.
@@ -191,6 +205,7 @@ export async function generateKitchenRender(
       - **ABSOLUTELY NO PICTURE-IN-PICTURE**.
       - **ABSOLUTELY NO GRID LAYOUTS**.
       - **OUTPUT MUST BE A SINGLE COHESIVE SCENE**.
+      - **NO DUAL RENDERINGS**.
 
       Output: A single, photorealistic, wide-angle interior design photograph.
     `;
