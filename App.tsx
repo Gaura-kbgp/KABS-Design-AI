@@ -5,13 +5,14 @@ import { UploadZone } from './components/UploadZone';
 import { fileParser } from './services/fileParser';
 import { generateKitchenRender } from './services/geminiService';
 import { DesignSettings, DEFAULT_SETTINGS, RenderState } from './types';
-import { RefreshCw, AlertCircle, X, Settings2, Download, ArrowLeft } from 'lucide-react';
+import { RefreshCw, AlertCircle, X, Settings2, Download, ArrowLeft, Check } from 'lucide-react';
 
 export default function App() {
   // --- State ---
   const [settings, setSettings] = useState<DesignSettings>(DEFAULT_SETTINGS);
   const [floorPlanFile, setFloorPlanFile] = useState<File | null>(null);
   const [floorPlanPreviews, setFloorPlanPreviews] = useState<string[]>([]);
+  const [selectedPageIndices, setSelectedPageIndices] = useState<number[]>([]); // Track user-selected pages
   const [viewingIndex, setViewingIndex] = useState<number>(0); // For viewing only, not selection
   const [pdfTextContent, setPdfTextContent] = useState<string>(''); // New State for Text
   const [isSidebarOpen, setSidebarOpen] = useState(false);
@@ -56,6 +57,8 @@ export default function App() {
       try {
         const images = await fileParser.pdfToImages(file);
         setFloorPlanPreviews(images);
+        // Default: Select the first page (usually the best perspective sorted by parser)
+        setSelectedPageIndices([0]);
         
         // Extract Text from PDF
         const text = await fileParser.pdfToText(file);
@@ -70,6 +73,7 @@ export default function App() {
       reader.onload = (e) => {
         const result = e.target?.result as string;
         setFloorPlanPreviews([result]);
+        setSelectedPageIndices([0]);
       };
       reader.readAsDataURL(file);
     }
@@ -110,8 +114,13 @@ export default function App() {
   };
 
   const togglePageSelection = (index: number) => {
-    // Just switch the view, do not toggle selection (Everything is selected by default)
-    setViewingIndex(index);
+    setSelectedPageIndices(prev => {
+        if (prev.includes(index)) {
+             return prev.filter(i => i !== index);
+        } else {
+             return [...prev, index];
+        }
+    });
   };
 
   const handleSettingsUpdate = (key: keyof DesignSettings, value: string) => {
@@ -141,8 +150,13 @@ export default function App() {
         // Refinement mode: Use the existing render
         inputData = renderState.generatedImage.split(',')[1];
       } else {
-        // New Generation: Use ALL preview images
-        const selectedImages = floorPlanPreviews;
+        // New Generation: Use SELECTED preview images
+        let selectedImages = floorPlanPreviews.filter((_, index) => selectedPageIndices.includes(index));
+        
+        // Fallback: If nothing selected, use the first page
+        if (selectedImages.length === 0 && floorPlanPreviews.length > 0) {
+            selectedImages = [floorPlanPreviews[0]];
+        }
         
         // Pass array of base64 strings (full data URLs)
         inputData = selectedImages;
@@ -353,36 +367,58 @@ export default function App() {
                           </div>
                         ) : (
                           // READY STATE (File uploaded, waiting for user to click Generate)
-                          <div className="h-full flex flex-col items-center justify-center p-8 text-center space-y-6 md:space-y-8">
+                          <div className="h-full flex flex-col items-center justify-center p-4 md:p-8 text-center space-y-6">
                              
-                             <div className="relative group cursor-pointer" onClick={() => setSidebarOpen(true)}>
-                                <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl blur opacity-25 group-hover:opacity-75 transition duration-1000 group-hover:duration-200"></div>
-                                <div className="relative w-48 h-48 md:w-64 md:h-64 bg-slate-800 rounded-xl overflow-hidden border border-slate-700 shadow-2xl flex items-center justify-center">
-                                   {floorPlanPreviews.length > 0 ? (
-                                     <img src={floorPlanPreviews[0]} alt="Preview" className="w-full h-full object-contain opacity-80" />
-                                   ) : (
-                                     <div className="text-slate-600">No Preview</div>
-                                   )}
-                                   
-                                   {/* Overlay Hint */}
-                                   <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                      <div className="bg-slate-900/90 text-white px-4 py-2 rounded-full text-sm font-medium backdrop-blur-md flex items-center gap-2">
-                                        <Settings2 size={16} /> Configure Settings
-                                      </div>
-                                   </div>
+                             {/* Page Selection Grid */}
+                             <div className="w-full max-w-5xl mx-auto flex-1 min-h-0 flex flex-col">
+                                <div className="flex items-center justify-between mb-3 px-2 shrink-0">
+                                    <h3 className="text-sm font-semibold text-slate-300">Select Pages to Render ({selectedPageIndices.length})</h3>
+                                    <div className="flex gap-3">
+                                        <button onClick={() => setSelectedPageIndices(floorPlanPreviews.map((_, i) => i))} className="text-xs text-blue-400 hover:text-blue-300">
+                                          Select All
+                                        </button>
+                                        <button onClick={() => setSelectedPageIndices([])} className="text-xs text-slate-500 hover:text-slate-400">
+                                          Clear
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 overflow-y-auto p-2 bg-slate-900/50 rounded-xl border border-slate-800 min-h-[200px]">
+                                   {floorPlanPreviews.map((img, idx) => (
+                                       <div 
+                                          key={idx} 
+                                          onClick={() => togglePageSelection(idx)}
+                                          className={`relative aspect-square rounded-lg overflow-hidden cursor-pointer border-2 transition-all group ${selectedPageIndices.includes(idx) ? 'border-blue-500 ring-2 ring-blue-500/20 shadow-lg shadow-blue-900/20' : 'border-slate-800 opacity-60 hover:opacity-100 hover:border-slate-600'}`}
+                                       >
+                                          <img src={img} className="w-full h-full object-contain bg-white" />
+                                          
+                                          {selectedPageIndices.includes(idx) && (
+                                              <div className="absolute top-2 right-2 bg-blue-500 text-white rounded-full p-1.5 shadow-lg z-10">
+                                                  <Check size={14} />
+                                              </div>
+                                          )}
+                                          
+                                          <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-[10px] px-2 py-1.5 truncate text-center backdrop-blur-sm">
+                                              Page {idx + 1}
+                                          </div>
+                                       </div>
+                                   ))}
                                 </div>
                              </div>
                       
-                             <div>
+                             <div className="shrink-0">
                                <h3 className="text-xl md:text-2xl text-white font-bold">Ready to Render</h3>
                                <p className="text-slate-400 mt-2 max-w-md mx-auto text-sm md:text-base">
-                                 Your blueprint is loaded. Select your colors and materials in the sidebar, then click Generate.
+                                 {selectedPageIndices.length === 0 
+                                    ? "Please select at least one page from the grid above." 
+                                    : "Configure your materials in the sidebar, then click Generate."}
                                </p>
                              </div>
                              
                              <button 
                                onClick={() => triggerGeneration(settings)}
-                               className="bg-blue-600 hover:bg-blue-500 text-white text-base md:text-lg font-bold px-6 py-3 md:px-8 md:py-3 rounded-full shadow-blue-900/20 shadow-xl hover:shadow-2xl hover:scale-105 transition-all flex items-center gap-3"
+                               disabled={selectedPageIndices.length === 0}
+                               className={`text-base md:text-lg font-bold px-6 py-3 md:px-8 md:py-3 rounded-full shadow-xl transition-all flex items-center gap-3 ${selectedPageIndices.length === 0 ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-900/20 hover:shadow-2xl hover:scale-105'}`}
                              >
                                <RefreshCw size={20} />
                                GENERATE RENDER
