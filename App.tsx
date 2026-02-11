@@ -299,9 +299,11 @@ export default function App() {
                       
                       {/* Right: Output Render */}
                       <div className="flex-1 bg-slate-900 rounded-xl p-1 border border-slate-800 shadow-2xl relative group overflow-hidden flex flex-col">
-                        <div className="absolute top-4 left-4 z-10">
-                          <h3 className="text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-wider">AI Render Output</h3>
-                        </div>
+                        {renderState.generatedImage && (
+                          <div className="absolute top-4 left-4 z-10">
+                            <h3 className="text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-wider">AI Render Output</h3>
+                          </div>
+                        )}
                         
                         {renderState.generatedImage && (
                           <div className="absolute top-4 right-4 z-10 flex gap-2">
@@ -383,7 +385,7 @@ export default function App() {
                                     </div>
                                 </div>
                                 
-                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 overflow-y-auto p-2 bg-slate-900/50 rounded-xl border border-slate-800 min-h-[200px]">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 gap-y-8 overflow-y-auto p-4 bg-slate-900/50 rounded-xl border border-slate-800 min-h-[200px]">
                                    {floorPlanPreviews.map((img, idx) => (
                                        <div 
                                           key={idx} 
