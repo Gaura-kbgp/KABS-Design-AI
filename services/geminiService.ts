@@ -130,18 +130,19 @@ export async function generateKitchenRender(
     const singleImageDirectives = !isMultiPage ? `
       [SINGLE IMAGE MODE ACTIVATED]
       - **INPUT**: You have received EXACTLY ONE image.
-      - **CONSTRAINT**: You MUST process this single image.
-      - **PROHIBITION**: Do not create a "before/after" comparison.
-      - **PROHIBITION**: Do not create a "top/bottom" split.
-      - **PROHIBITION**: Do not create a "collage".
-      - **ACTION**: Output exactly one image that has the same aspect ratio and composition as the input.
+      - **SHEET LAYOUT DETECTION**: Does this image contain multiple viewports (e.g., a top view and a bottom view stacked)?
+      - **ACTION**: If the image is a "Drawing Sheet" with multiple views:
+        1. **IDENTIFY** the single best "Perspective View" (usually the largest 3D angle).
+        2. **CROP MENTALLY**: Ignore the secondary views, floor plans, or small details on the sheet.
+        3. **GENERATE**: Output a SINGLE, FULL-SCREEN image based on that one best view.
+      - **PROHIBITION**: Do not output a split screen. Do not output the white paper borders.
     ` : '';
 
     prompt = `
       [SYSTEM: CRITICAL OVERRIDE]
-      **MODE**: STRICT SKETCH TEXTURIZATION (CONTROLNET BEHAVIOR).
-      **GOAL**: Do NOT "generate" a kitchen. Do NOT "design" a kitchen. 
-      **TASK**: You are a digital painter. Take the provided "Wireframe Sketch" and "fill it" with photorealistic textures and lighting.
+      **MODE**: HIGH-FIDELITY PHOTOREALISM (VIRTUAL STAGING).
+      **GOAL**: Convert a Technical Line Drawing into a 4K Photograph.
+      **TASK**: You are a Virtual Staging Engine. The user has uploaded a black-and-white wireframe. You must "skin" it with real-world materials.
       
       ${singleImageDirectives}
 
@@ -153,10 +154,10 @@ export async function generateKitchenRender(
       - **STRICT ENFORCEMENT**: Do not "decorate" the kitchen. Only "build" it.
 
       [PHASE 1: SINGLE MASTER VIEW SELECTION]
-      - **INPUT**: You have received multiple images.
-      - **CRITICAL DECISION**: You must select EXACTLY ONE image to be the "MASTER COMPOSITION".
+      - **INPUT**: You have received multiple images (or a single sheet with multiple views).
+      - **CRITICAL DECISION**: You must select EXACTLY ONE perspective to be the "MASTER COMPOSITION".
       - **SELECTION LOGIC**:
-        1. Choose the image that shows the **WIDEST ANGLE** of the kitchen (the "Room View").
+        1. Choose the image (or sub-view) that shows the **WIDEST ANGLE** of the kitchen (the "Room View").
         2. IGNORE images that are just zoomed-in details (e.g., just an island, just a cabinet).
         3. IGNORE 2D floor plans if a 3D view is available.
       - **RESULT**: The selected image is now the **ONLY** geometry source. All other images are **REFERENCE ONLY**.
@@ -186,6 +187,7 @@ export async function generateKitchenRender(
       - **REFLECTIONS**: The countertop must reflect the under-cabinet lighting.
       - **ANTI-FLATNESS**: Banish "flat colors". Every surface must have texture (grain, vein, noise).
       - **PRESERVATION**: The final image must look exactly like the sketch, just with lights turned on and materials applied.
+      - **LINE REMOVAL**: The black sketch lines must be COMPLETELY COVERED by the material textures. Do not leave a "cartoon outline".
 
       [PHASE 5: GEOMETRY & FIDELITY - PIXEL PERFECT MATCH]
       - **PRIMARY DIRECTIVE**: The Input Sketch is the ABSOLUTE TRUTH for geometry.
@@ -194,6 +196,7 @@ export async function generateKitchenRender(
       - **CONFLICT RESOLUTION**: If text says "3 Drawers" but drawing shows 2, **RENDER 2**.
       - **CABINET CODES**: Use text only to determine *what* something is (e.g., "SB36" tells you it's a sink).
       - **NO HALLUCINATION**: Do not invent baseboards, crown molding, or handles if they are not drawn.
+
 
 
 
