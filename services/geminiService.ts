@@ -161,15 +161,15 @@ export async function generateKitchenRender(
         3. IGNORE 2D floor plans if a 3D view is available.
       - **RESULT**: The selected image is now the **ONLY** geometry source. All other images are **REFERENCE ONLY**.
 
-      [PHASE 2: INTELLIGENT DETAIL MERGE (NO SPLIT SCREENS)]
-      - **PROBLEM**: You might see the Island from the Front (drawers) in one image and the Back (plain) in the Master View.
-      - **SOLUTION**: 
-        1. **RESPECT THE MASTER CAMERA**: If the Master View shows the BACK of the island, render the BACK (plain/panels). If it shows the FRONT, render the FRONT (drawers).
-        2. **DO NOT TILE**: Never, ever show two images stacked or side-by-side.
-        3. **DO NOT ROTATE**: Do not try to show the "hidden side" by rotating the object.
-        4. **TEXTURE TRANSFER**: Take the *style* (drawer face design, handle style, wood grain) from the Detail View and apply it to the visible surfaces in the Master View.
+      [PHASE 2: INTELLIGENT DATA MERGE - CROSS-REFERENCE EVERYTHING]
+      - **MANDATORY ANALYSIS**: Before rendering, scan ALL provided images.
+      - **DETAIL EXTRACTION**: 
+        - If Image 2 shows the Island has a specific "X" pattern or "3-drawer stack", you MUST paint that detail onto the Master View.
+        - If Image 3 shows a Microwave in the wall cabinet, you MUST paint that Microwave in the Master View, even if the Master View sketch is vague.
+      - **MISSING DATA FILL**: The Master View might be a rough sketch. The Detail Views are the "High Res" truth. Use them to fill in the blanks.
+      - **CONSISTENCY CHECK**: If the Floor Plan (2D) shows a sink on the island, but the 3D sketch missed it, **ADD THE SINK**. Trust the most detailed source.
 
-      [PHASE 3: STRICT PERSPECTIVE MATCH]
+      [PHASE 3: STRICT PERSPECTIVE MATCH (MASTER VIEW ONLY)]
       - **CRITICAL**: **DO NOT MOVE THE CAMERA.**
       - **RULE**: Use the EXACT camera angle, perspective, and composition of the MASTER REFERENCE sketch.
       - **PROHIBITED**: Do not "zoom out", do not "rotate", do not "change lenses". 
