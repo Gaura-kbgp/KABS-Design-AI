@@ -137,23 +137,22 @@ export async function generateKitchenRender(
       - **FORBIDDEN**: Do NOT change the cabinet door count.
       - **RULE**: If it's not in the lines, it doesn't exist. Keep the scene ARCHITECTURALLY CLEAN.
 
-      [PHASE 1: INTELLIGENT VIEW SELECTION & MASTER REFERENCE]
-      - **INPUT**: You have a set of images (Plans, Sketches, Details).
-      - **TASK**: Scan ALL provided images to find the **"BEST FULL-KITCHEN SKETCH"**.
-      - **SELECTION CRITERIA**:
-        1. **MUST BE A 3D VIEW** (Not a 2D floor plan).
-        2. **MUST BE EYE-LEVEL** (Avoid top-down "bird's eye" views if possible).
-        3. **MUST BE WIDE ANGLE** (Shows the most cabinets, walls, and context).
-        4. **IGNORE PARTIALS**: Do not select an image that only shows the Island or only one wall.
-      - **ACTION**: Designate this selected image as your **MASTER GEOMETRY REFERENCE**. All colors and textures will be applied to this specific view.
+      [PHASE 1: SINGLE MASTER VIEW SELECTION]
+      - **INPUT**: You have received multiple images.
+      - **CRITICAL DECISION**: You must select EXACTLY ONE image to be the "MASTER COMPOSITION".
+      - **SELECTION LOGIC**:
+        1. Choose the image that shows the **WIDEST ANGLE** of the kitchen (the "Room View").
+        2. IGNORE images that are just zoomed-in details (e.g., just an island, just a cabinet).
+        3. IGNORE 2D floor plans if a 3D view is available.
+      - **RESULT**: The selected image is now the **ONLY** geometry source. All other images are **REFERENCE ONLY**.
 
-      [PHASE 2: DATA EXTRACTION & VIEW SYNTHESIS]
-      - **CONTEXT**: The PDF contains "Detail Views" (e.g., a zoom-in of the island, a flat elevation of the wall).
-      - **ACTION**: 
-        1. **IDENTIFY**: Look at the "Island Detail" to see exactly how many drawers/doors it has.
-        2. **TRANSFER**: Paint those exact drawers/doors onto the Island in the **MASTER GEOMETRY REFERENCE**.
-        3. **IGNORE POSITION**: Do not let the "Detail View" camera angle override the "Master View" camera angle.
-        4. **UNIFY**: The result must be ONE single image (The Master View) with the high-fidelity details from the other pages painted in.
+      [PHASE 2: INTELLIGENT DETAIL MERGE (NO SPLIT SCREENS)]
+      - **PROBLEM**: You might see the Island from the Front (drawers) in one image and the Back (plain) in the Master View.
+      - **SOLUTION**: 
+        1. **RESPECT THE MASTER CAMERA**: If the Master View shows the BACK of the island, render the BACK (plain/panels). If it shows the FRONT, render the FRONT (drawers).
+        2. **DO NOT TILE**: Never, ever show two images stacked or side-by-side.
+        3. **DO NOT ROTATE**: Do not try to show the "hidden side" by rotating the object.
+        4. **TEXTURE TRANSFER**: Take the *style* (drawer face design, handle style, wood grain) from the Detail View and apply it to the visible surfaces in the Master View.
 
       [PHASE 3: STRICT PERSPECTIVE MATCH]
       - **CRITICAL**: **DO NOT MOVE THE CAMERA.**
@@ -188,6 +187,10 @@ export async function generateKitchenRender(
       ${nkbaStandards}
 
       ${negativePrompt}
+      - **ABSOLUTELY NO SPLIT SCREENS**.
+      - **ABSOLUTELY NO PICTURE-IN-PICTURE**.
+      - **ABSOLUTELY NO GRID LAYOUTS**.
+      - **OUTPUT MUST BE A SINGLE COHESIVE SCENE**.
 
       Output: A single, photorealistic, wide-angle interior design photograph.
     `;
