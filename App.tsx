@@ -323,14 +323,14 @@ export default function App() {
                             />
                             
                             {/* Floating Toolbar for Update / Back - Always Visible */}
-                            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-slate-950/80 p-2 rounded-full backdrop-blur-md border border-slate-800 shadow-2xl">
+                            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-slate-950/80 p-2 rounded-full backdrop-blur-md border border-slate-800 shadow-2xl z-50">
                                 <button 
-                                  onClick={resetUpload}
+                                  onClick={closeRender}
                                   className="flex items-center gap-2 px-4 py-2 rounded-full text-slate-300 hover:text-white hover:bg-slate-800 transition-colors text-sm font-medium"
                                   disabled={renderState.isLoading}
                                 >
                                   <ArrowLeft size={16} />
-                                  Upload New
+                                  Back to Selection
                                 </button>
                                 
                                 <div className="w-px h-6 bg-slate-700"></div>
