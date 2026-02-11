@@ -140,84 +140,55 @@ export async function generateKitchenRender(
 
     prompt = `
       [SYSTEM: CRITICAL OVERRIDE]
-      **MODE**: HIGH-FIDELITY PHOTOREALISM (VIRTUAL STAGING).
-      **GOAL**: Convert a Technical Line Drawing into a 4K Photograph.
-      **TASK**: You are a Virtual Staging Engine. The user has uploaded a black-and-white wireframe. You must "skin" it with real-world materials.
+      **MODE**: STRICT IMAGE SYNTHESIS (NOT GENERATION).
+      **ROLE**: You are a "Smart Texture Engine" (like ControlNet).
+      **TASK**: Apply realistic materials and lighting to the provided wireframe drawing.
       
+      [CORE DIRECTIVE: DO NOT GENERATE NEW GEOMETRY]
+      - The input image is a "mask". You may only color INSIDE the lines.
+      - **DO NOT** add objects (no vases, no fruit, no plants).
+      - **DO NOT** add windows, doors, or cabinets that are not in the sketch.
+      - **DO NOT** change the perspective or camera angle.
+      - **DO NOT** "imagine" the rest of the room. If the sketch stops, the render stops.
+
+      [STRICT MATERIAL APPLICATION]
+      1. **CABINETS**: Apply "${COLOR_PROMPT_MAP[settings.baseCabinetColor]}" to all lower cabinets/drawers.
+      2. **UPPERS**: Apply "${COLOR_PROMPT_MAP[settings.wallCabinetColor]}" to all wall cabinets.
+      3. **FLOOR**: Apply a realistic wood or tile texture based on context.
+      4. **LIGHTING**: Add soft, realistic Global Illumination. Shadows must match the geometry.
+
       ${singleImageDirectives}
 
-      [PHASE 0: CONTENT PRESERVATION - "NO ADDITIONS" RULE]
-      - **FORBIDDEN**: Do NOT add vases, plants, fruit bowls, knife blocks, or clutter.
-      - **FORBIDDEN**: Do NOT add windows or doors that are not in the sketch.
-      - **FORBIDDEN**: Do NOT change the cabinet door count.
-      - **RULE**: If it's not in the lines, it doesn't exist. Keep the scene ARCHITECTURALLY CLEAN.
-      - **STRICT ENFORCEMENT**: Do not "decorate" the kitchen. Only "build" it.
+      [PHASE 1: MASTER VIEW IDENTIFICATION]
+      - You may receive multiple reference images.
+      - Select the ONE image that is the "Main Perspective" (widest angle 3D view).
+      - This selected image is your CANVAS. You will paint on THIS canvas.
+      - Use other images ONLY to understand details (e.g., "Oh, the island has 3 drawers").
 
-      [PHASE 1: SINGLE MASTER VIEW SELECTION]
-      - **INPUT**: You have received multiple images (or a single sheet with multiple views).
-      - **CRITICAL DECISION**: You must select EXACTLY ONE perspective to be the "MASTER COMPOSITION".
-      - **SELECTION LOGIC**:
-        1. Choose the image (or sub-view) that shows the **WIDEST ANGLE** of the kitchen (the "Room View").
-        2. IGNORE images that are just zoomed-in details (e.g., just an island, just a cabinet).
-        3. IGNORE 2D floor plans if a 3D view is available.
-      - **RESULT**: The selected image is now the **ONLY** geometry source. All other images are **REFERENCE ONLY**.
+      [PHASE 2: CROSS-REFERENCE DETAILS]
+      - If the Main View is sketchy, look at the Detail Views.
+      - If Detail View shows a "Shaker" door, paint "Shaker" style on the Main View.
+      - If Detail View shows a Microwave, paint a Microwave on the Main View.
 
-      [PHASE 2: INTELLIGENT DATA MERGE - CROSS-REFERENCE EVERYTHING]
-      - **MANDATORY ANALYSIS**: Before rendering, scan ALL provided images.
-      - **DETAIL EXTRACTION**: 
-        - If Image 2 shows the Island has a specific "X" pattern or "3-drawer stack", you MUST paint that detail onto the Master View.
-        - If Image 3 shows a Microwave in the wall cabinet, you MUST paint that Microwave in the Master View, even if the Master View sketch is vague.
-      - **MISSING DATA FILL**: The Master View might be a rough sketch. The Detail Views are the "High Res" truth. Use them to fill in the blanks.
-      - **CONSISTENCY CHECK**: If the Floor Plan (2D) shows a sink on the island, but the 3D sketch missed it, **ADD THE SINK**. Trust the most detailed source.
-
-      [PHASE 3: STRICT PERSPECTIVE MATCH (MASTER VIEW ONLY)]
-      - **CRITICAL**: **DO NOT MOVE THE CAMERA.**
-      - **RULE**: Use the EXACT camera angle, perspective, and composition of the MASTER REFERENCE sketch.
-      - **PROHIBITED**: Do not "zoom out", do not "rotate", do not "change lenses". 
-      - **ACTION**: Your job is only to "paint" the existing pixels. 
-      - **ALIGNMENT**: The output image geometry must perfectly overlay the input sketch.
-
-      [PHASE 4: PHOTOREALISTIC STYLE TRANSFER - NO GEOMETRY CHANGES]
-      - **TASK**: Treat the input lines as an "Unpaintable Wireframe".
-      - **ACTION**: Apply PBR (Physically Based Rendering) materials to the wireframe surfaces ONLY.
-      - **CONSTRAINT**: Do not move a single line. Do not straighten a wall. Do not fix a crooked drawer.
-      - **LIGHTING**: Add "Global Illumination". Light must bounce off the floor onto the cabinets.
-      - **DEPTH**: Add "Ambient Occlusion" in the corners to create depth without changing shape.
-      - **SHADOWS**: The island must cast a soft shadow on the wood floor.
-      - **REFLECTIONS**: The countertop must reflect the under-cabinet lighting.
-      - **ANTI-FLATNESS**: Banish "flat colors". Every surface must have texture (grain, vein, noise).
-      - **PRESERVATION**: The final image must look exactly like the sketch, just with lights turned on and materials applied.
-      - **LINE REMOVAL**: The black sketch lines must be COMPLETELY COVERED by the material textures. Do not leave a "cartoon outline".
-
-      [PHASE 5: GEOMETRY & FIDELITY - PIXEL PERFECT MATCH]
-      - **PRIMARY DIRECTIVE**: The Input Sketch is the ABSOLUTE TRUTH for geometry.
-      - **COUNTING RULE**: Count the number of cabinet doors, drawers, and panels in the sketch. The output MUST match this count exactly.
-      - **ISLAND PANELS**: If the island back has 5 vertical sections in the sketch, the render MUST have 5 sections. Do not simplify to 3 or 4.
-      - **CONFLICT RESOLUTION**: If text says "3 Drawers" but drawing shows 2, **RENDER 2**.
-      - **CABINET CODES**: Use text only to determine *what* something is (e.g., "SB36" tells you it's a sink).
-      - **NO HALLUCINATION**: Do not invent baseboards, crown molding, or handles if they are not drawn.
-
-
-
-
-      [PHASE 6: APPLIANCE & FIXTURE DETECTION]
-      - **SINK**: Locate "SB36". If on Island, render sink on Island. If on Wall, render on Wall.
-      - **FRIDGE**: Render Stainless Steel Fridge where the box is.
-      - **RANGE**: Render Stainless Steel Range where the stove is.
-      - **MICRO**: Only render Microwave if "MW" or "Micro" is explicitly drawn/labeled.
+      [PHASE 3: PHOTOREALISM WITHOUT HALLUCINATION]
+      - **GOAL**: Make it look like a photo, NOT a drawing.
+      - **METHOD**:
+        - Hide the black sketch lines by blending them into shadows/edges.
+        - Add reflections on the countertop.
+        - Add ambient occlusion in corners.
+      - **CONSTRAINT**: If a line exists in the sketch, it must exist as an edge in the photo.
 
       ${commonRules}
       
       ${nkbaStandards}
 
       ${negativePrompt}
-      - **ABSOLUTELY NO SPLIT SCREENS**.
-      - **ABSOLUTELY NO PICTURE-IN-PICTURE**.
-      - **ABSOLUTELY NO GRID LAYOUTS**.
-      - **OUTPUT MUST BE A SINGLE COHESIVE SCENE**.
-      - **NO DUAL RENDERINGS**.
+      - **NO SPLIT SCREENS**.
+      - **NO TEXT OVERLAYS**.
+      - **NO CARTOON/SKETCH EFFECTS**.
+      - **NO EXTRA FURNITURE**.
 
-      Output: A single, photorealistic, wide-angle interior design photograph.
+      Output: A single, high-fidelity photograph of the EXACT scene in the sketch.
     `;
   }
 

@@ -420,10 +420,10 @@ export default function App() {
                              <button 
                                onClick={() => triggerGeneration(settings)}
                                disabled={selectedPageIndices.length === 0}
-                               className={`text-base md:text-lg font-bold px-6 py-3 md:px-8 md:py-3 rounded-full shadow-xl transition-all flex items-center gap-3 ${selectedPageIndices.length === 0 ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-900/20 hover:shadow-2xl hover:scale-105'}`}
+                               className={`text-base md:text-lg font-bold px-6 py-3 md:px-8 md:py-3 rounded-full shadow-xl transition-all flex items-center gap-3 ${selectedPageIndices.length === 0 ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/20 hover:shadow-2xl hover:scale-105'}`}
                              >
                                <RefreshCw size={20} />
-                               GENERATE RENDER
+                               CONVERT TO PHOTO
                              </button>
                           </div>
                         )}
