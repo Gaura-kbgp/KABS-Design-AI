@@ -21,7 +21,7 @@ export const UploadZone: React.FC<UploadZoneProps> = ({ onFileSelect }) => {
 
   return (
     <div 
-      className="flex flex-col items-center justify-center w-full h-full min-h-[250px] md:min-h-[400px] border-2 border-dashed border-slate-700 rounded-xl bg-slate-800/50 hover:bg-slate-800 hover:border-blue-500 transition-all cursor-pointer group p-6"
+      className="flex flex-col items-center justify-center w-full h-full min-h-[200px] md:min-h-[300px] border-2 border-dashed border-slate-700 rounded-xl bg-slate-800/50 hover:bg-slate-800 hover:border-blue-500 transition-all cursor-pointer group p-4 md:p-6"
       onDragOver={(e) => e.preventDefault()}
       onDrop={handleDrop}
       onClick={() => document.getElementById('file-upload')?.click()}
@@ -34,15 +34,15 @@ export const UploadZone: React.FC<UploadZoneProps> = ({ onFileSelect }) => {
         onChange={handleChange}
       />
       
-      <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-slate-700 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-        <Upload className="text-slate-400 group-hover:text-blue-400" size={24} />
+      <div className="w-10 h-10 md:w-14 md:h-14 rounded-full bg-slate-700 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+        <Upload className="text-slate-400 group-hover:text-blue-400" size={20} />
       </div>
       
-      <h3 className="text-base md:text-lg font-semibold text-white mb-2 text-center">Upload Floor Plan</h3>
-      <p className="text-slate-400 text-xs md:text-sm max-w-xs text-center mb-6">
+      <h3 className="text-sm md:text-base font-semibold text-white mb-2 text-center">Upload Floor Plan</h3>
+      <p className="text-slate-400 text-xs max-w-xs text-center mb-4">
         Drag & drop your 2D PDF or Image here.
         <br />
-        <span className="text-slate-500 text-[10px] md:text-xs">(Supported: JPG, PNG, PDF)</span>
+        <span className="text-slate-500 text-[10px]">(Supported: JPG, PNG, PDF)</span>
       </p>
       
       <div className="flex gap-4 text-[10px] md:text-xs text-slate-500">

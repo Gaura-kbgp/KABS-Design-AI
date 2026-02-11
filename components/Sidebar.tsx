@@ -43,16 +43,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <>
       {isOpen && <div className="fixed inset-0 bg-black/60 z-40 md:hidden" onClick={onClose} />}
-      <div className={`fixed inset-y-0 left-0 z-50 w-full sm:w-80 bg-slate-900 border-r border-slate-800 flex flex-col transition-transform duration-300 md:static md:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <div className={`fixed inset-y-0 left-0 z-50 w-full md:w-72 lg:w-80 bg-slate-900 border-r border-slate-800 flex flex-col transition-transform duration-300 md:static md:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         
         {/* Header */}
-        <div className="p-4 border-b border-slate-800 flex items-center justify-between shrink-0 h-16">
-          <h1 className="text-lg font-bold text-white flex items-center gap-2"><Box className="text-blue-500" size={20} /> KABS Design AI</h1>
-          <button onClick={onClose} className="p-2 text-slate-400 md:hidden"><X size={24} /></button>
+        <div className="p-4 border-b border-slate-800 flex items-center justify-between shrink-0 h-14 md:h-16">
+          <h1 className="text-base md:text-lg font-bold text-white flex items-center gap-2"><Box className="text-blue-500" size={18} /> KABS Design AI</h1>
+          <button onClick={onClose} className="p-2 text-slate-400 md:hidden"><X size={20} /></button>
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
             {renderOptionGroup('Wall Cabinet Finish', <Palette size={14} />, ['White', 'Oyster', 'Shoji', 'Pebble', 'Taupe', 'Arctic', 'Slate Blue', 'Naval', 'Saddle', 'Walnut', 'Oak', 'Espresso'], settings.wallCabinetColor, 'wallCabinetColor')}
             {renderOptionGroup('Base/Island Cabinet Finish', <Palette size={14} />, ['White', 'Oyster', 'Shoji', 'Pebble', 'Taupe', 'Arctic', 'Slate Blue', 'Naval', 'Saddle', 'Walnut', 'Oak', 'Espresso'], settings.baseCabinetColor, 'baseCabinetColor')}
             {renderOptionGroup('Door Style', <Square size={14} />, ['Shaker', 'Flat Panel'], settings.doorStyle, 'doorStyle')}

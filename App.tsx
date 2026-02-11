@@ -63,7 +63,7 @@ export default function App() {
         
       } catch (err) {
         console.error("Failed to convert PDF preview", err);
-        setRenderState(prev => ({ ...prev, isLoading: false, error: "Failed to read PDF drawing." }));
+        setRenderState(prev => ({ ...prev, isLoading: false, error: "Failed to read PDF blueprint." }));
       }
     } else {
       const reader = new FileReader();
@@ -266,7 +266,7 @@ export default function App() {
         {/* Content Area */}
         <div className="flex-1 overflow-hidden relative bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-slate-950">
           
-             <div className="h-full w-full p-4 md:p-6 overflow-y-auto flex flex-col items-center">
+             <div className="h-full w-full p-2 md:p-4 overflow-y-auto flex flex-col items-center">
                 {renderState.error && (
                   <div className="w-full max-w-3xl mb-4 bg-red-500/10 border border-red-500/50 text-red-200 px-4 py-3 rounded-lg flex items-center gap-3">
                     <AlertCircle size={18} />
@@ -281,12 +281,12 @@ export default function App() {
 
                 {/* Loading State or Result State */}
                 {floorPlanFile && (
-                  <div className="w-full max-w-6xl flex flex-col h-full">
+                  <div className="w-full max-w-full lg:max-w-[1800px] flex flex-col h-full">
                       
                       {/* Right: Output Render */}
                       <div className="flex-1 bg-slate-900 rounded-xl p-1 border border-slate-800 shadow-2xl relative group overflow-hidden flex flex-col">
                         <div className="absolute top-4 left-4 z-10">
-                          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">AI Render Output</h3>
+                          <h3 className="text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-wider">AI Render Output</h3>
                         </div>
                         
                         {renderState.generatedImage && (
@@ -353,11 +353,11 @@ export default function App() {
                           </div>
                         ) : (
                           // READY STATE (File uploaded, waiting for user to click Generate)
-                          <div className="h-full flex flex-col items-center justify-center p-8 text-center space-y-8">
+                          <div className="h-full flex flex-col items-center justify-center p-8 text-center space-y-6 md:space-y-8">
                              
                              <div className="relative group cursor-pointer" onClick={() => setSidebarOpen(true)}>
                                 <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl blur opacity-25 group-hover:opacity-75 transition duration-1000 group-hover:duration-200"></div>
-                                <div className="relative w-64 h-64 md:w-80 md:h-80 bg-slate-800 rounded-xl overflow-hidden border border-slate-700 shadow-2xl flex items-center justify-center">
+                                <div className="relative w-48 h-48 md:w-64 md:h-64 bg-slate-800 rounded-xl overflow-hidden border border-slate-700 shadow-2xl flex items-center justify-center">
                                    {floorPlanPreviews.length > 0 ? (
                                      <img src={floorPlanPreviews[0]} alt="Preview" className="w-full h-full object-contain opacity-80" />
                                    ) : (
@@ -374,17 +374,17 @@ export default function App() {
                              </div>
                       
                              <div>
-                               <h3 className="text-2xl text-white font-bold">Ready to Render</h3>
-                               <p className="text-slate-400 mt-2 max-w-md mx-auto">
+                               <h3 className="text-xl md:text-2xl text-white font-bold">Ready to Render</h3>
+                               <p className="text-slate-400 mt-2 max-w-md mx-auto text-sm md:text-base">
                                  Your blueprint is loaded. Select your colors and materials in the sidebar, then click Generate.
                                </p>
                              </div>
                              
                              <button 
                                onClick={() => triggerGeneration(settings)}
-                               className="bg-blue-600 hover:bg-blue-500 text-white text-lg font-bold px-10 py-4 rounded-full shadow-blue-900/20 shadow-xl hover:shadow-2xl hover:scale-105 transition-all flex items-center gap-3"
+                               className="bg-blue-600 hover:bg-blue-500 text-white text-base md:text-lg font-bold px-6 py-3 md:px-8 md:py-3 rounded-full shadow-blue-900/20 shadow-xl hover:shadow-2xl hover:scale-105 transition-all flex items-center gap-3"
                              >
-                               <RefreshCw size={24} />
+                               <RefreshCw size={20} />
                                GENERATE RENDER
                              </button>
                           </div>
