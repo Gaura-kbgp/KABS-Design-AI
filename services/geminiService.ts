@@ -155,21 +155,12 @@ export async function generateKitchenRender(
         3. **IGNORE POSITION**: Do not let the "Detail View" camera angle override the "Master View" camera angle.
         4. **UNIFY**: The result must be ONE single image (The Master View) with the high-fidelity details from the other pages painted in.
 
-      [PHASE 3: CAMERA ANGLE & SHAPE OPTIMIZATION]
-      - **CRITICAL**: Adjust your rendering approach based on the KITCHEN SHAPE detected in the Master Reference:
-      
-      - **CASE A: U-SHAPE KITCHEN**
-        - **CAMERA RULE**: **"LONG DISTANCE" / FAR BACK**.
-        - **GOAL**: You MUST capture ALL 3 WALLS and the CENTER ISLAND.
-        - **CORRECTION**: If the sketch cuts off the side walls, conceptually "step back" the camera to reveal the full U-shape structure.
-      
-      - **CASE B: L-SHAPE KITCHEN**
-        - **CAMERA RULE**: **"OPPOSITE CORNER"**.
-        - **GOAL**: Position camera in the empty corner looking into the 'L'. Show both wall runs and the Island.
-      
-      - **CASE C: GALLEY / STRAIGHT WALL**
-        - **CAMERA RULE**: **"FRONTAL WIDE ANGLE"**.
-        - **GOAL**: Show the entire length of the cabinetry run from a direct or slight angle.
+      [PHASE 3: STRICT PERSPECTIVE MATCH]
+      - **CRITICAL**: **DO NOT MOVE THE CAMERA.**
+      - **RULE**: Use the EXACT camera angle, perspective, and composition of the MASTER REFERENCE sketch.
+      - **PROHIBITED**: Do not "zoom out", do not "rotate", do not "change lenses". 
+      - **ACTION**: Your job is only to "paint" the existing pixels. 
+      - **ALIGNMENT**: The output image geometry must perfectly overlay the input sketch.
 
       [PHASE 4: PHOTOREALISTIC STYLE TRANSFER]
       - **TASK**: Treat the input lines as a "Wireframe".
@@ -228,10 +219,9 @@ export async function generateKitchenRender(
       },
       config: {
         seed: seed,
-        // Reduced temperature to 0.20 to ensure strict adherence to prompts and higher consistency.
-        // Higher values (0.5+) caused randomness in layout.
-        // We rely on the PROMPT TEXT ("One Room Rule") to break the layout, not the temperature.
-        temperature: 0.20, 
+        // Reduced temperature to 0.0 for MAXIMUM DETERMINISM.
+        // We do not want creativity. We want STRICT adherence to the input.
+        temperature: 0.0, 
         // Safety settings removed to avoid type conflicts with @google/genai SDK. 
         // Default safety settings will apply.
       },
