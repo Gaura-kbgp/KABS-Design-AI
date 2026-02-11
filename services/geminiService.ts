@@ -140,43 +140,44 @@ export async function generateKitchenRender(
 
     prompt = `
       [SYSTEM: CRITICAL OVERRIDE]
-      **MODE**: STRICT IMAGE SYNTHESIS (NOT GENERATION).
-      **ROLE**: You are a "Smart Texture Engine" (like ControlNet).
-      **TASK**: Apply realistic materials and lighting to the provided wireframe drawing.
+      **MODE**: STRICT COLORIZATION & TEXTURE FILL (NO GENERATION).
+      **ROLE**: You are a "Digital Coloring Engine".
+      **TASK**: Colorize the provided line drawing with photorealistic materials.
       
-      [CORE DIRECTIVE: DO NOT GENERATE NEW GEOMETRY]
-      - The input image is a "mask". You may only color INSIDE the lines.
-      - **DO NOT** add objects (no vases, no fruit, no plants).
-      - **DO NOT** add windows, doors, or cabinets that are not in the sketch.
-      - **DO NOT** change the perspective or camera angle.
-      - **DO NOT** "imagine" the rest of the room. If the sketch stops, the render stops.
-
+      [CORE DIRECTIVE: PIXEL-PERFECT ALIGNMENT]
+      - The input image is your UNCHANGING FRAMEWORK.
+      - **DO NOT** move a single line.
+      - **DO NOT** add objects (NO vases, NO fruit, NO plants, NO decor).
+      - **DO NOT** change the cabinet layout.
+      - **DO NOT** straighten perspective.
+      - **ACTION**: Simply "fill" the white spaces between the black lines with the requested textures (Wood, Stone, Paint).
+      
       [STRICT MATERIAL APPLICATION]
-      1. **CABINETS**: Apply "${COLOR_PROMPT_MAP[settings.baseCabinetColor]}" to all lower cabinets/drawers.
-      2. **UPPERS**: Apply "${COLOR_PROMPT_MAP[settings.wallCabinetColor]}" to all wall cabinets.
-      3. **FLOOR**: Apply a realistic wood or tile texture based on context.
-      4. **LIGHTING**: Add soft, realistic Global Illumination. Shadows must match the geometry.
+      1. **CABINETS**: Fill all lower cabinet shapes with "${COLOR_PROMPT_MAP[settings.baseCabinetColor]}" texture.
+      2. **UPPERS**: Fill all upper cabinet shapes with "${COLOR_PROMPT_MAP[settings.wallCabinetColor]}" texture.
+      3. **FLOOR**: Fill the floor area with a realistic wood or tile texture.
+      4. **LIGHTING**: Apply "Global Illumination" to simulate depth, but DO NOT change the geometry.
+      5. **SHADOWS**: Cast shadows ONLY where the drawing implies depth.
 
       ${singleImageDirectives}
 
       [PHASE 1: MASTER VIEW IDENTIFICATION]
       - You may receive multiple reference images.
       - Select the ONE image that is the "Main Perspective" (widest angle 3D view).
-      - This selected image is your CANVAS. You will paint on THIS canvas.
+      - This selected image is your CANVAS. You will paint DIRECTLY ON THIS CANVAS.
       - Use other images ONLY to understand details (e.g., "Oh, the island has 3 drawers").
 
       [PHASE 2: CROSS-REFERENCE DETAILS]
       - If the Main View is sketchy, look at the Detail Views.
-      - If Detail View shows a "Shaker" door, paint "Shaker" style on the Main View.
-      - If Detail View shows a Microwave, paint a Microwave on the Main View.
+      - If Detail View shows a "Shaker" door, paint "Shaker" shading on the Main View.
+      - If Detail View shows a Microwave, paint a Microwave texture on the Main View.
 
       [PHASE 3: PHOTOREALISM WITHOUT HALLUCINATION]
-      - **GOAL**: Make it look like a photo, NOT a drawing.
+      - **GOAL**: The result must look like the original sketch was "brought to life".
       - **METHOD**:
-        - Hide the black sketch lines by blending them into shadows/edges.
-        - Add reflections on the countertop.
-        - Add ambient occlusion in corners.
-      - **CONSTRAINT**: If a line exists in the sketch, it must exist as an edge in the photo.
+        - Treat the black lines as "creases" or "edges" in the 3D geometry.
+        - Do NOT erase the lines; turn them into shadows/edges.
+        - **ABSOLUTE BAN**: Do not add "staging props". No fruit bowls. No flowers. No chairs unless drawn.
 
       ${commonRules}
       
@@ -187,8 +188,10 @@ export async function generateKitchenRender(
       - **NO TEXT OVERLAYS**.
       - **NO CARTOON/SKETCH EFFECTS**.
       - **NO EXTRA FURNITURE**.
+      - **NO VASES / PLANTS / DECOR**.
+      - **NO GEOMETRY CHANGES**.
 
-      Output: A single, high-fidelity photograph of the EXACT scene in the sketch.
+      Output: A single, high-fidelity photograph that PERFECTLY OVERLAYS the input sketch.
     `;
   }
 
