@@ -1,21 +1,67 @@
 import { GoogleGenAI } from "@google/genai";
 import { DesignSettings, COLOR_PROMPT_MAP } from "../types";
 
-// Using Gemini 2.5 Flash Image model as requested. 
-// This model is optimized for native image generation.
-const MODEL_NAME = 'gemini-2.5-flash-image';     
+// Using Gemini 2.0 Pro (Experimental) as the "Better/Higher" model first.
+// Fallback to Gemini 2.5 Flash Image if Pro fails or is unavailable.
+const PRIMARY_MODEL = 'gemini-2.0-pro-exp-0211';
+const FALLBACK_MODEL = 'gemini-2.5-flash-image';
+
+async function generateWithModel(
+  ai: GoogleGenAI, 
+  modelName: string, 
+  parts: any[], 
+  seed: number
+): Promise<string> {
+  console.log(`Attempting generation with model: ${modelName}`);
+  try {
+    const response = await ai.models.generateContent({
+      model: modelName,
+      contents: { parts },
+      config: {
+        seed: seed,
+        temperature: 0.0, // Strict adherence
+      },
+    });
+
+    const candidates = response.candidates;
+    if (candidates && candidates.length > 0) {
+      const content = candidates[0].content;
+      if (!content || !content.parts) throw new Error("Empty content");
+
+      for (const part of content.parts) {
+        if (part.inlineData && part.inlineData.data) {
+          return `data:image/png;base64,${part.inlineData.data}`;
+        }
+      }
+      
+      // If we get text instead of image, treat it as a failure for the "Image Generator"
+      let textResponse = '';
+      for (const part of content.parts) {
+        if (part.text) textResponse += part.text + ' ';
+      }
+      if (textResponse) {
+        throw new Error(`Model returned text instead of image: ${textResponse.substring(0, 50)}...`);
+      }
+    }
+    throw new Error("No candidates returned");
+  } catch (error) {
+    console.warn(`Model ${modelName} failed:`, error);
+    throw error;
+  }
+}
 
 export async function generateKitchenRender(
-  inputImages: string | string[], // Can be single base64 or array of base64 strings
+  inputImages: string | string[], 
   mimeType: string,
   settings: DesignSettings,
   seed: number,
-  isRefinement: boolean = false, // True if we are just changing colors on an existing render
-  pdfTextContext: string = '' // New: Raw text from PDF
+  isRefinement: boolean = false, 
+  pdfTextContext: string = '' 
 ): Promise<string> {
-  // Vite exposes env variables prefixed with VITE_ on import.meta.env
-  // However, guidelines strictly require using process.env.API_KEY
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  
+  // ... (Prompt construction remains the same, I will insert the logic below)
+
 
   let prompt = '';
 
@@ -128,55 +174,57 @@ export async function generateKitchenRender(
     // DETECT IF SINGLE IMAGE INPUT
     // If user selects only ONE page, we must enforce strict single-image processing
     const singleImageDirectives = !isMultiPage ? `
-      [SINGLE IMAGE MODE ACTIVATED]
-      - **INPUT**: You have received EXACTLY ONE image.
-      - **SHEET LAYOUT DETECTION**: Does this image contain multiple viewports (e.g., a top view and a bottom view stacked)?
-      - **ACTION**: If the image is a "Drawing Sheet" with multiple views:
-        1. **IDENTIFY** the single best "Perspective View" (usually the largest 3D angle).
-        2. **CROP MENTALLY**: Ignore the secondary views, floor plans, or small details on the sheet.
-        3. **GENERATE**: Output a SINGLE, FULL-SCREEN image based on that one best view.
-      - **PROHIBITION**: Do not output a split screen. Do not output the white paper borders.
+      [SHEET CLEANUP PROTOCOL - CRITICAL]
+      - **INPUT ANALYSIS**: The input image might be a "Technical Drawing Sheet" containing MULTIPLE separate drawings (e.g., a Main View on top, an Island View on bottom, and a Floor Plan in the corner).
+      - **TASK**: You must OUTPUT a SINGLE, COHESIVE IMAGE.
+      - **ACTION**:
+        1. **SCAN** the sheet for the *largest* and *most complete* 3D Perspective View.
+        2. **CROP & ZOOM**: Mentally "cut out" that single best view.
+        3. **DISCARD**: Completely ignore the secondary views, floor plans, text blocks, and page borders.
+        4. **EXPAND**: Make that single selected view fill your entire output canvas.
+      - **RESULT**: The user must see ONE big photo of the kitchen, not a sheet with multiple boxes.
     ` : '';
 
     prompt = `
       [SYSTEM: CRITICAL OVERRIDE]
-      **MODE**: STRICT COLORIZATION & TEXTURE FILL (NO GENERATION).
-      **ROLE**: You are a "Digital Coloring Engine".
-      **TASK**: Colorize the provided line drawing with photorealistic materials.
+      **MODE**: INTELLIGENT PHOTOREALISTIC RE-FRAMING.
+      **ROLE**: You are a "Virtual Staging Camera".
+      **TASK**: Extract the main kitchen design from the technical sheet and render it as a real photo.
       
-      [CORE DIRECTIVE: PIXEL-PERFECT ALIGNMENT]
-      - The input image is your UNCHANGING FRAMEWORK.
-      - **DO NOT** move a single line.
-      - **DO NOT** add objects (NO vases, NO fruit, NO plants, NO decor).
-      - **DO NOT** change the cabinet layout.
-      - **DO NOT** straighten perspective.
-      - **ACTION**: Simply "fill" the white spaces between the black lines with the requested textures (Wood, Stone, Paint).
+      [STEP 1: VIEWPORT SELECTION & COMPOSITION]
+      - **DO NOT** just color the whole page. That looks like a mess.
+      - **FIND THE HERO SHOT**: Look at the input. Identify the Main Kitchen Perspective.
+      - **IGNORE CLUTTER**: Ignore small detail drawings, floating cabinets, or floor plans on the same page.
+      - **FRAME IT**: Your output image should be a close-up, immersive view of that Main Kitchen Perspective.
+
+      [STEP 2: STRICT GEOMETRY PRESERVATION (WITHIN THE VIEW)]
+      - Once you have selected the Main View, **LOCK THE GEOMETRY**.
+      - **DO NOT** move cabinets, appliances, or walls *within that view*.
+      - **DO NOT** add objects (NO vases, NO fruit, NO plants).
+      - **DO NOT** "hallucinate" parts of the room that aren't there.
       
-      [STRICT MATERIAL APPLICATION]
+      [STEP 3: MATERIAL APPLICATION]
       1. **CABINETS**: Fill all lower cabinet shapes with "${COLOR_PROMPT_MAP[settings.baseCabinetColor]}" texture.
       2. **UPPERS**: Fill all upper cabinet shapes with "${COLOR_PROMPT_MAP[settings.wallCabinetColor]}" texture.
       3. **FLOOR**: Fill the floor area with a realistic wood or tile texture.
-      4. **LIGHTING**: Apply "Global Illumination" to simulate depth, but DO NOT change the geometry.
-      5. **SHADOWS**: Cast shadows ONLY where the drawing implies depth.
+      4. **LIGHTING**: Apply "Global Illumination" to simulate depth.
 
       ${singleImageDirectives}
 
-      [PHASE 1: MASTER VIEW IDENTIFICATION]
-      - You may receive multiple reference images.
-      - Select the ONE image that is the "Main Perspective" (widest angle 3D view).
-      - This selected image is your CANVAS. You will paint DIRECTLY ON THIS CANVAS.
-      - Use other images ONLY to understand details (e.g., "Oh, the island has 3 drawers").
+      [PHASE 1: MASTER VIEW IDENTIFICATION (MULTI-PAGE INPUT)]
+      - If multiple images are provided, one might be a floor plan and one a 3D view.
+      - **ALWAYS PRIORITIZE THE 3D PERSPECTIVE**.
+      - Use the floor plan only for context (e.g., "Where is the window?").
+      - Your output must correspond to the VISUAL PERSPECTIVE of the 3D Drawing.
 
       [PHASE 2: CROSS-REFERENCE DETAILS]
       - If the Main View is sketchy, look at the Detail Views.
       - If Detail View shows a "Shaker" door, paint "Shaker" shading on the Main View.
-      - If Detail View shows a Microwave, paint a Microwave texture on the Main View.
 
       [PHASE 3: PHOTOREALISM WITHOUT HALLUCINATION]
-      - **GOAL**: The result must look like the original sketch was "brought to life".
+      - **GOAL**: The result must look like a high-end architectural visualization.
       - **METHOD**:
         - Treat the black lines as "creases" or "edges" in the 3D geometry.
-        - Do NOT erase the lines; turn them into shadows/edges.
         - **ABSOLUTE BAN**: Do not add "staging props". No fruit bowls. No flowers. No chairs unless drawn.
 
       ${commonRules}
@@ -184,14 +232,15 @@ export async function generateKitchenRender(
       ${nkbaStandards}
 
       ${negativePrompt}
-      - **NO SPLIT SCREENS**.
+      - **NO SPLIT SCREENS** (Crucial: Output must be one single scene).
+      - **NO TILED IMAGES**.
+      - **NO WHITE BORDERS**.
       - **NO TEXT OVERLAYS**.
       - **NO CARTOON/SKETCH EFFECTS**.
       - **NO EXTRA FURNITURE**.
       - **NO VASES / PLANTS / DECOR**.
-      - **NO GEOMETRY CHANGES**.
 
-      Output: A single, high-fidelity photograph that PERFECTLY OVERLAYS the input sketch.
+      Output: A single, full-screen, high-fidelity photograph of the MAIN KITCHEN VIEW.
     `;
   }
 
@@ -207,63 +256,27 @@ export async function generateKitchenRender(
       
       parts.push({
           inlineData: {
-              mimeType: mimeType, // Assuming all images share the same mime type for simplicity (usually PNG from PDF conversion)
+              mimeType: mimeType, 
               data: cleanData
           }
       });
   });
 
+  // === NEW FALLBACK MECHANISM ===
+  // Try the "Better/Higher" model first.
   try {
-    const response = await ai.models.generateContent({
-      model: MODEL_NAME,
-      contents: {
-        parts: parts,
-      },
-      config: {
-        seed: seed,
-        // Reduced temperature to 0.0 for MAXIMUM DETERMINISM.
-        // We do not want creativity. We want STRICT adherence to the input.
-        temperature: 0.0, 
-        // Safety settings removed to avoid type conflicts with @google/genai SDK. 
-        // Default safety settings will apply.
-      },
-    });
-
-    const candidates = response.candidates;
-    if (candidates && candidates.length > 0) {
-      // Safety check: Ensure content and parts exist before iterating
-      const content = candidates[0].content;
-      
-      // Handle cases where parts might be null or undefined
-      if (!content || !content.parts) {
-         console.warn("Gemini returned a candidate but no content parts. Raw response:", JSON.stringify(candidates[0]));
-         throw new Error("AI returned an empty response. Please try again.");
-      }
-      
-      const parts = content.parts;
-      
-      for (const part of parts) {
-        if (part.inlineData && part.inlineData.data) {
-          return `data:image/png;base64,${part.inlineData.data}`;
-        }
-      }
-
-      let textResponse = '';
-      for (const part of parts) {
-        if (part.text) {
-          textResponse += part.text + ' ';
-        }
-      }
-      
-      if (textResponse) {
-        console.warn("Gemini returned text instead of image:", textResponse);
-        throw new Error(`AI processing note: "${textResponse.trim().substring(0, 150)}..."`);
-      }
-    }
+    console.log("Starting generation with PRIMARY model:", PRIMARY_MODEL);
+    return await generateWithModel(ai, PRIMARY_MODEL, parts, seed);
+  } catch (primaryError) {
+    console.warn(`PRIMARY MODEL (${PRIMARY_MODEL}) FAILED. Switching to FALLBACK (${FALLBACK_MODEL}). Reason:`, primaryError);
     
-    throw new Error("No image generated.");
-  } catch (error) {
-    console.error("Gemini Generation Error:", error);
-    throw error;
+    // Retry with the fallback model (Gemini 2.5 Flash Image)
+    try {
+      console.log("Starting generation with FALLBACK model:", FALLBACK_MODEL);
+      return await generateWithModel(ai, FALLBACK_MODEL, parts, seed);
+    } catch (fallbackError) {
+      console.error("BOTH MODELS FAILED. Critical Error.", fallbackError);
+      throw new Error(`AI Generation Failed: ${fallbackError instanceof Error ? fallbackError.message : 'Unknown error'}`);
+    }
   }
 }
