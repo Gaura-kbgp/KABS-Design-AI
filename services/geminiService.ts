@@ -1,9 +1,10 @@
 import { GoogleGenAI } from "@google/genai";
 import { DesignSettings, COLOR_PROMPT_MAP } from "../types";
 
-// Using Gemini 2.0 Pro (Experimental) as the "Better/Higher" model first.
+// Using Gemini 3 Pro Image (Preview) as the "Better/Higher" model first.
+// This is the image-generation capable variant of the "Gemini 3 Pro" model selected in the IDE.
 // Fallback to Gemini 2.5 Flash Image if Pro fails or is unavailable.
-const PRIMARY_MODEL = 'gemini-2.0-pro-exp-0211';
+const PRIMARY_MODEL = 'gemini-3-pro-image-preview';
 const FALLBACK_MODEL = 'gemini-2.5-flash-image';
 
 async function generateWithModel(
